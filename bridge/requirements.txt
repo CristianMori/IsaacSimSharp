@@ -1,0 +1,4 @@
+# Install into the bundled Isaac Sim interpreter:
+#   C:\isaacsim\python.bat -m pip install -r bridge\requirements.txt
+pyzmq>=26
+protobuf>=5

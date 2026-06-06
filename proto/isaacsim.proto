@@ -1,0 +1,110 @@
+syntax = "proto3";
+
+package isaacsim;
+
+option csharp_namespace = "IsaacSimSharp.Protocol";
+
+// =====================================================================
+// IsaacSimSharp wire protocol  (single source of truth for C# + Python)
+//
+// Two ZeroMQ sockets:
+//   * Commands  - ROUTER (bridge) / DEALER (client). Request/reply
+//                 correlated by Command.id, echoed back in Reply.id.
+//   * Sensors   - PUB (bridge) / SUB (client). Bridge publishes
+//                 SensorFrame messages; topic = sensor handle.
+//
+// Milestone 1 implements only the lifecycle handshake (Ping, GetVersion).
+// Later milestones add scene / robot / sensor cases to the oneofs below.
+// =====================================================================
+
+// ---- Command envelope (client -> bridge, over the command socket) ----
+message Command {
+  uint64 id = 1; // correlation id, echoed in the matching Reply
+  oneof request {
+    PingRequest ping = 10;
+    GetVersionRequest get_version = 11;
+    NewStageRequest new_stage = 12;
+    OpenStageRequest open_stage = 13;
+    PlayRequest play = 14;
+    PauseRequest pause = 15;
+    StopRequest stop = 16;
+    ResetRequest reset = 17;
+    StepRequest step = 18;
+    SetPhysicsDtRequest set_physics_dt = 19;
+    ExportUsdRequest export_usd = 20;
+    ShutdownRequest shutdown = 21;
+  }
+}
+
+// ---- Reply envelope (bridge -> client, over the command socket) ----
+// Ack-only operations (play/pause/etc.) leave `result` unset and rely on `ok`.
+message Reply {
+  uint64 id = 1;        // matches Command.id
+  bool ok = 2;          // false => see `error`, `result` is unset
+  string error = 3;     // human-readable error when ok == false
+  oneof result {
+    PingReply ping = 10;
+    GetVersionReply get_version = 11;
+    StepReply step = 18;
+    ExportUsdReply export_usd = 20;
+  }
+}
+
+// ---------------------------- Lifecycle ------------------------------
+
+message PingRequest {
+  string message = 1; // optional echo payload
+}
+
+message PingReply {
+  string message = 1; // echoes PingRequest.message
+}
+
+message GetVersionRequest {}
+
+message GetVersionReply {
+  string isaac_sim_version = 1; // e.g. "6.0.0"
+  string bridge_version = 2;    // isaacsim_bridge package version
+  string protocol_version = 3;  // this protocol's semantic version
+}
+
+// Create a fresh, empty USD stage (discards the current one).
+message NewStageRequest {}
+
+// Open an existing USD stage from disk.
+message OpenStageRequest {
+  string path = 1; // absolute or bridge-relative path to a .usd/.usda file
+}
+
+// Timeline control. Play/Pause/Stop mirror the Isaac Sim timeline.
+message PlayRequest {}
+message PauseRequest {}
+message StopRequest {}   // rewinds the timeline to the start
+message ResetRequest {}  // restores prims to their default initial state
+
+// Advance the simulation by `count` application frames.
+message StepRequest {
+  uint32 count = 1; // defaults to 1 when 0
+}
+
+message StepReply {
+  uint64 frame = 1;    // application frame counter after stepping
+  double sim_time = 2; // timeline seconds after stepping
+}
+
+// Set the physics timestep (seconds), e.g. 1/60.
+message SetPhysicsDtRequest {
+  double dt = 1;
+}
+
+// Export the current stage to disk.
+message ExportUsdRequest {
+  string path = 1; // .usd (binary) or .usda (ascii); dirs created if needed
+}
+
+message ExportUsdReply {
+  string path = 1; // resolved absolute path actually written
+}
+
+// Ask the bridge to shut down the simulation and exit.
+message ShutdownRequest {}
