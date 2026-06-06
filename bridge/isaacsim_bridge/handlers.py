@@ -107,6 +107,120 @@ class Handlers:
     def _h_shutdown(self, cmd, reply) -> None:
         self.should_shutdown = True
 
+    # ------------------------------------------------------------------ scene
+    def _h_add_ground_plane(self, cmd, reply) -> None:
+        from isaacsim.core.experimental.objects import GroundPlane
+
+        path = cmd.add_ground_plane.prim_path or "/World/GroundPlane"
+        GroundPlane(path, positions=[[0.0, 0.0, 0.0]])
+        reply.prim.prim_path = path
+
+    def _h_add_light(self, cmd, reply) -> None:
+        from isaacsim.core.experimental.objects import (
+            DistantLight,
+            DomeLight,
+            RectLight,
+            SphereLight,
+        )
+
+        req = cmd.add_light
+        path = req.prim_path or "/World/Light"
+        cls = {
+            pb.LIGHT_DISTANT: DistantLight,
+            pb.LIGHT_SPHERE: SphereLight,
+            pb.LIGHT_DOME: DomeLight,
+            pb.LIGHT_RECT: RectLight,
+        }.get(req.type, DistantLight)
+        light = cls(path)
+        light.set_intensities(req.intensity or 1000.0)
+        if any((req.color.r, req.color.g, req.color.b)):
+            try:
+                light.set_colors([[req.color.r, req.color.g, req.color.b]])
+            except Exception:  # noqa: BLE001 - color is best-effort across light types
+                pass
+        reply.prim.prim_path = path
+
+    def _h_add_primitive(self, cmd, reply) -> None:
+        import numpy as np
+        from isaacsim.core.experimental.objects import (
+            Capsule,
+            Cone,
+            Cube,
+            Cylinder,
+            Sphere,
+        )
+
+        req = cmd.add_primitive
+        path = req.prim_path or "/World/Prim"
+        pos = [[req.position.x, req.position.y, req.position.z]]
+        size = req.size or 0.5
+
+        if req.shape == pb.SHAPE_SPHERE:
+            obj = Sphere(paths=path, positions=pos, radii=size)
+        elif req.shape == pb.SHAPE_CYLINDER:
+            obj = Cylinder(paths=path, positions=pos, radii=size, heights=size * 2.0)
+        elif req.shape == pb.SHAPE_CONE:
+            obj = Cone(paths=path, positions=pos, radii=size, heights=size * 2.0)
+        elif req.shape == pb.SHAPE_CAPSULE:
+            obj = Capsule(paths=path, positions=pos, radii=size, heights=size * 2.0)
+        else:
+            obj = Cube(paths=path, positions=pos, sizes=size)
+
+        q = req.orientation
+        if any((q.x, q.y, q.z, q.w)):
+            obj.set_world_poses(
+                positions=np.array(pos, dtype=np.float32),
+                orientations=np.array([[q.w, q.x, q.y, q.z]], dtype=np.float32),
+            )
+
+        if req.collision or req.rigid:
+            from isaacsim.core.experimental.prims import GeomPrim, RigidPrim
+
+            GeomPrim(paths=path, apply_collision_apis=True)
+            if req.rigid:
+                RigidPrim(paths=path)
+
+        reply.prim.prim_path = path
+
+    def _h_add_reference(self, cmd, reply) -> None:
+        req = cmd.add_reference
+        if not req.usd_path:
+            raise ValueError("usd_path is required")
+        path = req.prim_path or "/World/Reference"
+        self._stage_utils.add_reference_to_stage(usd_path=req.usd_path, path=path)
+        reply.prim.prim_path = path
+
+    def _h_set_prim_pose(self, cmd, reply) -> None:
+        import numpy as np
+        from isaacsim.core.experimental.prims import XformPrim
+
+        req = cmd.set_prim_pose
+        xform = XformPrim(paths=req.prim_path)
+        q = req.orientation
+        orient = (
+            [q.w, q.x, q.y, q.z] if any((q.x, q.y, q.z, q.w)) else [1.0, 0.0, 0.0, 0.0]
+        )
+        xform.set_world_poses(
+            positions=np.array([[req.position.x, req.position.y, req.position.z]], dtype=np.float32),
+            orientations=np.array([orient], dtype=np.float32),
+        )
+
+    def _h_remove_prim(self, cmd, reply) -> None:
+        stage = self._omni_usd.get_context().get_stage()
+        if not stage.RemovePrim(cmd.remove_prim.prim_path):
+            raise RuntimeError(f"failed to remove prim '{cmd.remove_prim.prim_path}'")
+
+    def _h_import_urdf(self, cmd, reply) -> None:
+        from isaacsim.asset.importer.urdf.impl import URDFImporter, URDFImporterConfig
+
+        req = cmd.import_urdf
+        config = URDFImporterConfig()
+        config.urdf_path = req.urdf_path
+        config.fix_base = req.fixed_base
+        importer = URDFImporter(config)
+        result = importer.import_urdf()
+        reply.prim.prim_path = req.prim_path or str(result)
+
     # ------------------------------------------------------------------ helpers
     @staticmethod
     def _isaac_version() -> str:

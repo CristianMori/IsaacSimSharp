@@ -33,6 +33,13 @@ message Command {
     SetPhysicsDtRequest set_physics_dt = 19;
     ExportUsdRequest export_usd = 20;
     ShutdownRequest shutdown = 21;
+    AddGroundPlaneRequest add_ground_plane = 22;
+    AddLightRequest add_light = 23;
+    AddPrimitiveRequest add_primitive = 24;
+    AddReferenceRequest add_reference = 25;
+    SetPrimPoseRequest set_prim_pose = 26;
+    RemovePrimRequest remove_prim = 27;
+    ImportUrdfRequest import_urdf = 28;
   }
 }
 
@@ -47,6 +54,7 @@ message Reply {
     GetVersionReply get_version = 11;
     StepReply step = 18;
     ExportUsdReply export_usd = 20;
+    PrimReply prim = 22; // returned by prim-creating ops (add_*, import_urdf)
   }
 }
 
@@ -108,3 +116,74 @@ message ExportUsdReply {
 
 // Ask the bridge to shut down the simulation and exit.
 message ShutdownRequest {}
+
+// ------------------------------ Scene config -------------------------
+
+// Common math/value helpers.
+message Vec3 { double x = 1; double y = 2; double z = 3; }
+message Quat { double x = 1; double y = 2; double z = 3; double w = 4; } // identity = (0,0,0,1)
+message Color { float r = 1; float g = 2; float b = 3; }
+
+enum Shape {
+  SHAPE_CUBE = 0;
+  SHAPE_SPHERE = 1;
+  SHAPE_CYLINDER = 2;
+  SHAPE_CONE = 3;
+  SHAPE_CAPSULE = 4;
+}
+
+enum LightType {
+  LIGHT_DISTANT = 0;
+  LIGHT_SPHERE = 1;
+  LIGHT_DOME = 2;
+  LIGHT_RECT = 3;
+}
+
+// Returned by ops that create a prim.
+message PrimReply {
+  string prim_path = 1; // the prim path actually created
+}
+
+message AddGroundPlaneRequest {
+  string prim_path = 1; // defaults to /World/GroundPlane when empty
+}
+
+message AddLightRequest {
+  string prim_path = 1; // defaults to /World/Light when empty
+  LightType type = 2;
+  double intensity = 3; // defaults to 1000 when 0
+  Color color = 4;      // defaults to white when unset
+}
+
+message AddPrimitiveRequest {
+  string prim_path = 1;
+  Shape shape = 2;
+  Vec3 position = 3;
+  Quat orientation = 4; // identity when unset
+  Vec3 scale = 5;       // (1,1,1) when unset
+  double size = 6;      // base size; defaults to 0.5 when 0
+  Color color = 7;
+  bool collision = 8;   // apply a collider
+  bool rigid = 9;       // make it a dynamic rigid body
+}
+
+message AddReferenceRequest {
+  string usd_path = 1;  // path/URL to the referenced USD (e.g. a robot asset)
+  string prim_path = 2; // where to attach it on the stage
+}
+
+message SetPrimPoseRequest {
+  string prim_path = 1;
+  Vec3 position = 2;
+  Quat orientation = 3; // identity when unset
+}
+
+message RemovePrimRequest {
+  string prim_path = 1;
+}
+
+message ImportUrdfRequest {
+  string urdf_path = 1;
+  string prim_path = 2;  // destination prim path
+  bool fixed_base = 3;
+}

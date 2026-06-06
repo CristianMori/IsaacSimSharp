@@ -1,4 +1,5 @@
 using IsaacSimSharp.Protocol;
+using IsaacSimSharp.Scene;
 using IsaacSimSharp.Transport;
 
 namespace IsaacSimSharp;
@@ -15,7 +16,11 @@ public sealed class IsaacSimClient : IDisposable
     {
         ArgumentNullException.ThrowIfNull(options);
         _commands = new CommandChannel(options.CommandEndpoint, options.RequestTimeout);
+        Scene = new SceneApi(_commands);
     }
+
+    /// <summary>Scene-configuration operations (ground plane, lights, primitives, references).</summary>
+    public SceneApi Scene { get; }
 
     /// <summary>Connects to a bridge at the given command endpoint (defaults to localhost).</summary>
     public static IsaacSimClient Connect(string? commandEndpoint = null)
@@ -101,14 +106,10 @@ public sealed class IsaacSimClient : IDisposable
     private async Task AckAsync(Command command, CancellationToken cancellationToken)
     {
         var reply = await _commands.SendAsync(command, cancellationToken).ConfigureAwait(false);
-        ThrowIfError(reply);
+        reply.EnsureOk();
     }
 
-    private static void ThrowIfError(Reply reply)
-    {
-        if (!reply.Ok)
-            throw new IsaacSimException(string.IsNullOrEmpty(reply.Error) ? "Bridge returned an error." : reply.Error);
-    }
+    private static void ThrowIfError(Reply reply) => reply.EnsureOk();
 
     public void Dispose() => _commands.Dispose();
 }

@@ -20,10 +20,19 @@ PROTOCOL_VERSION = "0.1.0"
 BRIDGE_VERSION = "mock-0.1.0"
 
 
-# Lifecycle ops that simply acknowledge (no data payload) in the mock.
+# Ops that simply acknowledge (no data payload) in the mock.
 _ACK_ONLY = {
     "new_stage", "open_stage", "play", "pause", "stop",
-    "reset", "set_physics_dt", "shutdown",
+    "reset", "set_physics_dt", "shutdown", "set_prim_pose", "remove_prim",
+}
+
+# Prim-creating ops: reply echoes the prim path that would be created.
+_PRIM_OPS = {
+    "add_ground_plane": "/World/GroundPlane",
+    "add_light": "/World/Light",
+    "add_primitive": "/World/Prim",
+    "add_reference": "/World/Reference",
+    "import_urdf": "/World/Urdf",
 }
 
 
@@ -43,6 +52,9 @@ def handle(cmd: "pb.Command", state: dict) -> "pb.Reply":
         reply.step.sim_time = state["frame"] / 60.0
     elif which == "export_usd":
         reply.export_usd.path = cmd.export_usd.path or "(mock).usda"
+    elif which in _PRIM_OPS:
+        requested = getattr(cmd, which).prim_path
+        reply.prim.prim_path = requested or _PRIM_OPS[which]
     elif which in _ACK_ONLY:
         pass  # ok == True, no payload
     else:
