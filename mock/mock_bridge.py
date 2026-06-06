@@ -55,6 +55,20 @@ def handle(cmd: "pb.Command", state: dict) -> "pb.Reply":
     elif which in _PRIM_OPS:
         requested = getattr(cmd, which).prim_path
         reply.prim.prim_path = requested or _PRIM_OPS[which]
+    elif which == "get_assets_root":
+        reply.get_assets_root.path = "mock://assets"
+    elif which == "register_articulation":
+        path = cmd.register_articulation.prim_path
+        reply.articulation.prim_path = path
+        reply.articulation.dof_names.extend([f"joint{i}" for i in range(state["dofs"])])
+        reply.articulation.dof_count = state["dofs"]
+    elif which == "get_dof_state":
+        n = state["dofs"]
+        reply.dof_state.positions.extend(state["targets"] or [0.0] * n)
+        reply.dof_state.velocities.extend([0.0] * n)
+        reply.dof_state.efforts.extend([0.0] * n)
+    elif which == "set_dof_targets":
+        state["targets"] = list(cmd.set_dof_targets.values)
     elif which in _ACK_ONLY:
         pass  # ok == True, no payload
     else:
@@ -73,7 +87,7 @@ def main() -> None:
     router.bind(args.command_endpoint)
     print(f"[mock-bridge] listening on {args.command_endpoint}", flush=True)
 
-    state = {"frame": 0}
+    state = {"frame": 0, "dofs": 9, "targets": None}
     try:
         while True:
             identity, payload = router.recv_multipart()

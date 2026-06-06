@@ -40,6 +40,10 @@ message Command {
     SetPrimPoseRequest set_prim_pose = 26;
     RemovePrimRequest remove_prim = 27;
     ImportUrdfRequest import_urdf = 28;
+    GetAssetsRootRequest get_assets_root = 29;
+    RegisterArticulationRequest register_articulation = 30;
+    GetDofStateRequest get_dof_state = 31;
+    SetDofTargetsRequest set_dof_targets = 32;
   }
 }
 
@@ -55,6 +59,9 @@ message Reply {
     StepReply step = 18;
     ExportUsdReply export_usd = 20;
     PrimReply prim = 22; // returned by prim-creating ops (add_*, import_urdf)
+    GetAssetsRootReply get_assets_root = 29;
+    ArticulationReply articulation = 30;
+    DofStateReply dof_state = 31;
   }
 }
 
@@ -186,4 +193,47 @@ message ImportUrdfRequest {
   string urdf_path = 1;
   string prim_path = 2;  // destination prim path
   bool fixed_base = 3;
+}
+
+// ------------------------------ Robot control ------------------------
+
+// Resolve the Isaac Sim assets root (local cache or cloud), so clients can
+// build asset URLs like <root>/Isaac/Robots/.../franka.usd.
+message GetAssetsRootRequest {}
+message GetAssetsRootReply {
+  string path = 1;
+}
+
+// Wrap an articulated robot prim so its DOFs can be read/driven.
+message RegisterArticulationRequest {
+  string prim_path = 1;
+}
+message ArticulationReply {
+  string prim_path = 1;
+  repeated string dof_names = 2;
+  int32 dof_count = 3;
+}
+
+message GetDofStateRequest {
+  string prim_path = 1;
+}
+message DofStateReply {
+  repeated double positions = 1;
+  repeated double velocities = 2;
+  repeated double efforts = 3;
+}
+
+// Drive DOFs. `mode` selects whether values are position targets, velocity
+// targets, or direct efforts. `indices` (optional) selects a DOF subset;
+// empty means all DOFs in order.
+enum DofControlMode {
+  DOF_POSITION = 0;
+  DOF_VELOCITY = 1;
+  DOF_EFFORT = 2;
+}
+message SetDofTargetsRequest {
+  string prim_path = 1;
+  DofControlMode mode = 2;
+  repeated double values = 3;
+  repeated uint32 indices = 4;
 }

@@ -17,6 +17,7 @@ class Handlers:
         self.sim_app = sim_app
         self.should_shutdown = False
         self._frame = 0
+        self._articulations: dict = {}  # prim_path -> Articulation wrapper
 
         # Heavy imports — safe now that SimulationApp exists.
         import omni.timeline
@@ -56,12 +57,14 @@ class Handlers:
         v.protocol_version = PROTOCOL_VERSION
 
     def _h_new_stage(self, cmd, reply) -> None:
+        self._articulations.clear()  # old wrappers point at prims that no longer exist
         self._stage_utils.create_new_stage()
 
     def _h_open_stage(self, cmd, reply) -> None:
         path = os.path.abspath(cmd.open_stage.path)
         if not os.path.exists(path):
             raise FileNotFoundError(path)
+        self._articulations.clear()
         self._omni_usd.get_context().open_stage(path)
 
     def _h_play(self, cmd, reply) -> None:
@@ -220,6 +223,61 @@ class Handlers:
         importer = URDFImporter(config)
         result = importer.import_urdf()
         reply.prim.prim_path = req.prim_path or str(result)
+
+    # ------------------------------------------------------------------ robots
+    def _h_get_assets_root(self, cmd, reply) -> None:
+        from isaacsim.storage.native import get_assets_root_path
+
+        reply.get_assets_root.path = get_assets_root_path() or ""
+
+    def _h_register_articulation(self, cmd, reply) -> None:
+        from isaacsim.core.experimental.prims import Articulation
+
+        path = cmd.register_articulation.prim_path
+        art = Articulation(path)  # always fresh; replaces any stale wrapper
+        self._articulations[path] = art
+        reply.articulation.prim_path = path
+        try:
+            names = [str(n) for n in art.dof_names]
+        except Exception:  # noqa: BLE001 - dof_names may be unavailable before play
+            names = []
+        reply.articulation.dof_names.extend(names)
+        try:
+            reply.articulation.dof_count = int(art.get_dof_positions().numpy().reshape(-1).shape[0])
+        except Exception:  # noqa: BLE001
+            reply.articulation.dof_count = len(names)
+
+    def _h_get_dof_state(self, cmd, reply) -> None:
+        art = self._articulation(cmd.get_dof_state.prim_path)
+        reply.dof_state.positions.extend(art.get_dof_positions().numpy().reshape(-1).tolist())
+        reply.dof_state.velocities.extend(art.get_dof_velocities().numpy().reshape(-1).tolist())
+        try:
+            reply.dof_state.efforts.extend(art.get_dof_efforts().numpy().reshape(-1).tolist())
+        except Exception:  # noqa: BLE001 - efforts not always available
+            pass
+
+    def _h_set_dof_targets(self, cmd, reply) -> None:
+        import numpy as np
+
+        req = cmd.set_dof_targets
+        art = self._articulation(req.prim_path)
+        values = np.array([list(req.values)], dtype=np.float32)
+        indices = list(req.indices) if len(req.indices) else None
+        if req.mode == pb.DOF_VELOCITY:
+            art.set_dof_velocity_targets(values, dof_indices=indices)
+        elif req.mode == pb.DOF_EFFORT:
+            art.set_dof_efforts(values, dof_indices=indices)
+        else:
+            art.set_dof_position_targets(values, dof_indices=indices)
+
+    def _articulation(self, path: str):
+        art = self._articulations.get(path)
+        if art is None:
+            from isaacsim.core.experimental.prims import Articulation
+
+            art = Articulation(path)
+            self._articulations[path] = art
+        return art
 
     # ------------------------------------------------------------------ helpers
     @staticmethod

@@ -1,4 +1,5 @@
 using IsaacSimSharp.Protocol;
+using IsaacSimSharp.Robots;
 using IsaacSimSharp.Scene;
 using IsaacSimSharp.Transport;
 
@@ -17,10 +18,14 @@ public sealed class IsaacSimClient : IDisposable
         ArgumentNullException.ThrowIfNull(options);
         _commands = new CommandChannel(options.CommandEndpoint, options.RequestTimeout);
         Scene = new SceneApi(_commands);
+        Robots = new RobotsApi(_commands);
     }
 
     /// <summary>Scene-configuration operations (ground plane, lights, primitives, references).</summary>
     public SceneApi Scene { get; }
+
+    /// <summary>Robot operations (register articulations, read/drive joints).</summary>
+    public RobotsApi Robots { get; }
 
     /// <summary>Connects to a bridge at the given command endpoint (defaults to localhost).</summary>
     public static IsaacSimClient Connect(string? commandEndpoint = null)
@@ -102,6 +107,16 @@ public sealed class IsaacSimClient : IDisposable
     /// <summary>Asks the bridge to shut down Isaac Sim and exit.</summary>
     public Task ShutdownAsync(CancellationToken cancellationToken = default)
         => AckAsync(new Command { Shutdown = new ShutdownRequest() }, cancellationToken);
+
+    /// <summary>Resolves the Isaac Sim assets root (for building asset URLs like robots).</summary>
+    public async Task<string> GetAssetsRootAsync(CancellationToken cancellationToken = default)
+    {
+        var reply = await _commands
+            .SendAsync(new Command { GetAssetsRoot = new GetAssetsRootRequest() }, cancellationToken)
+            .ConfigureAwait(false);
+        reply.EnsureOk();
+        return reply.GetAssetsRoot.Path;
+    }
 
     private async Task AckAsync(Command command, CancellationToken cancellationToken)
     {
