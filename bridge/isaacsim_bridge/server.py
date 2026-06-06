@@ -18,7 +18,7 @@ class BridgeServer:
     # block long enough to trip a client timeout).
     WARMUP_FRAMES = 8
 
-    def __init__(self, sim_app, command_endpoint: str) -> None:
+    def __init__(self, sim_app, command_endpoint: str, sensor_endpoint: str) -> None:
         self.sim_app = sim_app
         self.handlers = Handlers(sim_app)
 
@@ -31,7 +31,12 @@ class BridgeServer:
         self._socket.bind(command_endpoint)
         self._poller = zmq.Poller()
         self._poller.register(self._socket, zmq.POLLIN)
-        print(f"[isaacsim-bridge] listening on {command_endpoint}", flush=True)
+
+        # PUB socket for pushed sensor frames (topic = sensor handle).
+        self._pub = self._ctx.socket(zmq.PUB)
+        self._pub.bind(sensor_endpoint)
+
+        print(f"[isaacsim-bridge] listening on {command_endpoint} (sensors on {sensor_endpoint})", flush=True)
 
     def run(self) -> None:
         try:
@@ -40,8 +45,19 @@ class BridgeServer:
                 if self.handlers.should_shutdown:
                     break
                 self.sim_app.update()
+                self._publish_sensors()
         finally:
             self._shutdown()
+
+    def _publish_sensors(self) -> None:
+        for handle in list(self.handlers.subscriptions):
+            try:
+                frame = self.handlers.build_frame(handle)
+            except Exception as exc:  # noqa: BLE001 - never let one sensor kill the loop
+                print(f"[isaacsim-bridge] sensor '{handle}' error: {exc}", flush=True)
+                continue
+            if frame is not None:
+                self._pub.send_multipart([handle.encode("utf-8"), frame.SerializeToString()])
 
     def _drain_commands(self) -> None:
         events = dict(self._poller.poll(timeout=0))
@@ -62,5 +78,6 @@ class BridgeServer:
         print("[isaacsim-bridge] shutting down", flush=True)
         try:
             self._socket.close(0)
+            self._pub.close(0)
         finally:
             self.sim_app.close()

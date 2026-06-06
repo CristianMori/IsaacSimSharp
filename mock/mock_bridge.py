@@ -1,8 +1,9 @@
 """Pure-Python mock of the Isaac Sim bridge.
 
-Speaks the IsaacSimSharp ZeroMQ + Protobuf command protocol WITHOUT launching
-Isaac Sim, so the C# SDK, tests, and samples can run on any machine with no GPU.
-It returns canned replies for the handshake messages.
+Speaks the IsaacSimSharp ZeroMQ + Protobuf protocol WITHOUT launching Isaac Sim,
+so the C# SDK, tests, and samples can run on any machine with no GPU. Returns
+canned replies, and pushes canned sensor frames over the PUB socket for any
+subscribed handles.
 
 Run:  py -3.12 mock/mock_bridge.py
 """
@@ -10,6 +11,8 @@ Run:  py -3.12 mock/mock_bridge.py
 import argparse
 import os
 import sys
+import threading
+import time
 
 import zmq
 
@@ -19,14 +22,12 @@ import isaacsim_pb2 as pb  # noqa: E402  (generated from proto/isaacsim.proto)
 PROTOCOL_VERSION = "0.1.0"
 BRIDGE_VERSION = "mock-0.1.0"
 
-
-# Ops that simply acknowledge (no data payload) in the mock.
 _ACK_ONLY = {
-    "new_stage", "open_stage", "play", "pause", "stop",
-    "reset", "set_physics_dt", "shutdown", "set_prim_pose", "remove_prim",
+    "new_stage", "open_stage", "play", "pause", "stop", "reset",
+    "set_physics_dt", "shutdown", "set_prim_pose", "remove_prim",
+    "subscribe", "unsubscribe",
 }
 
-# Prim-creating ops: reply echoes the prim path that would be created.
 _PRIM_OPS = {
     "add_ground_plane": "/World/GroundPlane",
     "add_light": "/World/Light",
@@ -36,8 +37,24 @@ _PRIM_OPS = {
 }
 
 
+def make_frame(handle: str, state: dict) -> "pb.SensorFrame":
+    kind, width, height = state["sensors"][handle]
+    frame = pb.SensorFrame(handle=handle, frame=state["frame"], sim_time=state["frame"] / 60.0)
+    if kind == "camera":
+        frame.type = pb.SENSOR_CAMERA
+        frame.image.width = width
+        frame.image.height = height
+        frame.image.channels = 4
+        frame.image.encoding = "rgba8"
+        frame.image.data = bytes([128, 128, 128, 255]) * (width * height)
+    else:
+        frame.type = pb.SENSOR_IMU
+        frame.imu.linear_acceleration.z = 9.81
+        frame.imu.orientation.w = 1.0
+    return frame
+
+
 def handle(cmd: "pb.Command", state: dict) -> "pb.Reply":
-    """Dispatch a single command to a canned reply."""
     reply = pb.Reply(id=cmd.id, ok=True)
     which = cmd.WhichOneof("request")
     if which == "ping":
@@ -53,8 +70,7 @@ def handle(cmd: "pb.Command", state: dict) -> "pb.Reply":
     elif which == "export_usd":
         reply.export_usd.path = cmd.export_usd.path or "(mock).usda"
     elif which in _PRIM_OPS:
-        requested = getattr(cmd, which).prim_path
-        reply.prim.prim_path = requested or _PRIM_OPS[which]
+        reply.prim.prim_path = getattr(cmd, which).prim_path or _PRIM_OPS[which]
     elif which == "get_assets_root":
         reply.get_assets_root.path = "mock://assets"
     elif which == "register_articulation":
@@ -69,8 +85,32 @@ def handle(cmd: "pb.Command", state: dict) -> "pb.Reply":
         reply.dof_state.efforts.extend([0.0] * n)
     elif which == "set_dof_targets":
         state["targets"] = list(cmd.set_dof_targets.values)
+    elif which == "create_camera":
+        h = cmd.create_camera.prim_path or "/World/camera"
+        state["sensors"][h] = ("camera", cmd.create_camera.width or 8, cmd.create_camera.height or 8)
+        reply.sensor.handle = h
+    elif which == "create_imu":
+        h = cmd.create_imu.prim_path or "/World/imu_sensor"
+        state["sensors"][h] = ("imu", 0, 0)
+        reply.sensor.handle = h
+    elif which == "get_sensor_frame":
+        h = cmd.get_sensor_frame.handle
+        if h in state["sensors"]:
+            reply.sensor_frame.CopyFrom(make_frame(h, state))
+        else:
+            reply.ok = False
+            reply.error = f"unknown sensor '{h}'"
+    elif which == "subscribe":
+        h = cmd.subscribe.handle
+        if h in state["sensors"]:
+            state["subscriptions"].add(h)
+        else:
+            reply.ok = False
+            reply.error = f"unknown sensor '{h}'"
+    elif which == "unsubscribe":
+        state["subscriptions"].discard(cmd.unsubscribe.handle)
     elif which in _ACK_ONLY:
-        pass  # ok == True, no payload
+        pass
     else:
         reply.ok = False
         reply.error = f"mock bridge: unhandled request '{which}'"
@@ -80,14 +120,31 @@ def handle(cmd: "pb.Command", state: dict) -> "pb.Reply":
 def main() -> None:
     parser = argparse.ArgumentParser(description="IsaacSimSharp mock bridge")
     parser.add_argument("--command-endpoint", default="tcp://127.0.0.1:5599")
+    parser.add_argument("--sensor-endpoint", default="tcp://127.0.0.1:5600")
     args = parser.parse_args()
 
     ctx = zmq.Context.instance()
     router = ctx.socket(zmq.ROUTER)
     router.bind(args.command_endpoint)
-    print(f"[mock-bridge] listening on {args.command_endpoint}", flush=True)
+    pub = ctx.socket(zmq.PUB)
+    pub.bind(args.sensor_endpoint)
+    print(f"[mock-bridge] listening on {args.command_endpoint} (sensors on {args.sensor_endpoint})", flush=True)
 
-    state = {"frame": 0, "dofs": 9, "targets": None}
+    state = {"frame": 0, "dofs": 9, "targets": None, "sensors": {}, "subscriptions": set()}
+
+    stop = threading.Event()
+
+    def publisher() -> None:
+        while not stop.is_set():
+            for h in list(state["subscriptions"]):
+                try:
+                    pub.send_multipart([h.encode("utf-8"), make_frame(h, state).SerializeToString()])
+                except Exception:  # noqa: BLE001
+                    pass
+            time.sleep(0.05)
+
+    threading.Thread(target=publisher, daemon=True).start()
+
     try:
         while True:
             identity, payload = router.recv_multipart()
@@ -97,7 +154,9 @@ def main() -> None:
     except KeyboardInterrupt:
         pass
     finally:
+        stop.set()
         router.close(0)
+        pub.close(0)
         ctx.term()
 
 

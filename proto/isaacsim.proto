@@ -44,6 +44,11 @@ message Command {
     RegisterArticulationRequest register_articulation = 30;
     GetDofStateRequest get_dof_state = 31;
     SetDofTargetsRequest set_dof_targets = 32;
+    CreateCameraRequest create_camera = 33;
+    CreateImuRequest create_imu = 34;
+    SubscribeRequest subscribe = 35;
+    UnsubscribeRequest unsubscribe = 36;
+    GetSensorFrameRequest get_sensor_frame = 37;
   }
 }
 
@@ -62,6 +67,8 @@ message Reply {
     GetAssetsRootReply get_assets_root = 29;
     ArticulationReply articulation = 30;
     DofStateReply dof_state = 31;
+    SensorReply sensor = 33;       // returned by create_camera / create_imu
+    SensorFrame sensor_frame = 37; // returned by get_sensor_frame (on-demand pull)
   }
 }
 
@@ -236,4 +243,64 @@ message SetDofTargetsRequest {
   DofControlMode mode = 2;
   repeated double values = 3;
   repeated uint32 indices = 4;
+}
+
+// ------------------------------ Sensors ------------------------------
+// Two access modes share the SensorFrame payload:
+//   * pull  - GetSensorFrameRequest over the command socket (one-shot)
+//   * push  - SubscribeRequest, then frames stream over the PUB/SUB socket
+//             (topic = handle) until UnsubscribeRequest.
+
+enum SensorType {
+  SENSOR_UNKNOWN = 0;
+  SENSOR_CAMERA = 1;
+  SENSOR_IMU = 2;
+}
+
+message SensorReply {
+  string handle = 1; // identifies the sensor for subscribe/pull (its prim path)
+}
+
+message CreateCameraRequest {
+  string prim_path = 1;
+  uint32 width = 2;   // defaults to 640
+  uint32 height = 3;  // defaults to 480
+  Vec3 position = 4;
+  Quat orientation = 5; // wxyz; identity when unset
+  bool depth = 6;       // also capture a depth annotator
+}
+
+message CreateImuRequest {
+  string prim_path = 1; // e.g. /World/robot/link/imu_sensor
+  Vec3 position = 2;
+}
+
+message SubscribeRequest { string handle = 1; }
+message UnsubscribeRequest { string handle = 1; }
+message GetSensorFrameRequest { string handle = 1; }
+
+message ImageFrame {
+  uint32 width = 1;
+  uint32 height = 2;
+  uint32 channels = 3;
+  string encoding = 4; // e.g. "rgba8"
+  bytes data = 5;      // row-major pixels, length = width*height*channels
+  bytes depth = 6;     // optional float32 depth (meters), length = width*height*4
+}
+
+message ImuFrame {
+  Vec3 linear_acceleration = 1;
+  Vec3 angular_velocity = 2;
+  Quat orientation = 3; // wxyz
+}
+
+message SensorFrame {
+  string handle = 1;
+  SensorType type = 2;
+  uint64 frame = 3;     // bridge frame counter
+  double sim_time = 4;  // timeline seconds
+  oneof data {
+    ImageFrame image = 10;
+    ImuFrame imu = 11;
+  }
 }

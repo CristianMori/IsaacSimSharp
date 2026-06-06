@@ -2,6 +2,7 @@
   <Folder Name="/samples/">
     <Project Path="samples/Quickstart/Quickstart.csproj" />
     <Project Path="samples/RobotControl/RobotControl.csproj" />
+    <Project Path="samples/SensorStream/SensorStream.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/IsaacSimSharp.Protocol/IsaacSimSharp.Protocol.csproj" />

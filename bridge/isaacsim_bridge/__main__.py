@@ -17,6 +17,7 @@ from isaacsim import SimulationApp
 def main() -> None:
     parser = argparse.ArgumentParser(description="IsaacSimSharp bridge")
     parser.add_argument("--command-endpoint", default="tcp://127.0.0.1:5599")
+    parser.add_argument("--sensor-endpoint", default="tcp://127.0.0.1:5600")
     parser.add_argument("--gui", action="store_true", help="show the Isaac Sim UI (default: headless)")
     args = parser.parse_args()
 
@@ -25,7 +26,7 @@ def main() -> None:
     # Safe to import the bridge server now that the Kit app exists.
     from isaacsim_bridge.server import BridgeServer
 
-    server = BridgeServer(sim_app, args.command_endpoint)
+    server = BridgeServer(sim_app, args.command_endpoint, args.sensor_endpoint)
     server.run()
 
 

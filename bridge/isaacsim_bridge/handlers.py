@@ -12,12 +12,35 @@ from isaacsim_bridge import PROTOCOL_VERSION, __version__
 from isaacsim_bridge.proto import isaacsim_pb2 as pb
 
 
+def _imu_field(data, names):
+    """Best-effort extraction of a vector from the IMU get_data() result, which may be
+    a dict or an object and whose exact field names vary across versions."""
+    import numpy as np
+
+    value = None
+    for name in names:
+        if isinstance(data, dict) and name in data:
+            value = data[name]
+            break
+        if hasattr(data, name):
+            value = getattr(data, name)
+            break
+    if value is None:
+        return None
+    try:
+        return [float(x) for x in np.asarray(value).reshape(-1).tolist()]
+    except Exception:  # noqa: BLE001
+        return None
+
+
 class Handlers:
     def __init__(self, sim_app) -> None:
         self.sim_app = sim_app
         self.should_shutdown = False
         self._frame = 0
         self._articulations: dict = {}  # prim_path -> Articulation wrapper
+        self._sensors: dict = {}        # handle -> {"type", "sensor", ...}
+        self.subscriptions: set = set() # handles currently streamed over PUB/SUB
 
         # Heavy imports — safe now that SimulationApp exists.
         import omni.timeline
@@ -57,15 +80,20 @@ class Handlers:
         v.protocol_version = PROTOCOL_VERSION
 
     def _h_new_stage(self, cmd, reply) -> None:
-        self._articulations.clear()  # old wrappers point at prims that no longer exist
+        self._reset_registries()  # old wrappers point at prims that no longer exist
         self._stage_utils.create_new_stage()
 
     def _h_open_stage(self, cmd, reply) -> None:
         path = os.path.abspath(cmd.open_stage.path)
         if not os.path.exists(path):
             raise FileNotFoundError(path)
-        self._articulations.clear()
+        self._reset_registries()
         self._omni_usd.get_context().open_stage(path)
+
+    def _reset_registries(self) -> None:
+        self._articulations.clear()
+        self._sensors.clear()
+        self.subscriptions.clear()
 
     def _h_play(self, cmd, reply) -> None:
         self._timeline.play()
@@ -278,6 +306,112 @@ class Handlers:
             art = Articulation(path)
             self._articulations[path] = art
         return art
+
+    # ------------------------------------------------------------------ sensors
+    def _h_create_camera(self, cmd, reply) -> None:
+        import numpy as np
+        from isaacsim.sensors.experimental.rtx import CameraSensor, RtxCamera
+
+        req = cmd.create_camera
+        path = req.prim_path or "/World/camera"
+        width = req.width or 640
+        height = req.height or 480
+
+        kwargs = {"tick_rate": 60.0}
+        if any((req.position.x, req.position.y, req.position.z)):
+            kwargs["translations"] = np.array([req.position.x, req.position.y, req.position.z])
+        q = req.orientation
+        if any((q.x, q.y, q.z, q.w)):
+            kwargs["orientations"] = np.array([q.w, q.x, q.y, q.z])
+
+        cam = RtxCamera(path, **kwargs)
+        annotators = ["rgb"] + (["distance_to_image_plane"] if req.depth else [])
+        sensor = CameraSensor(cam, resolution=(height, width), annotators=annotators)
+        self._sensors[path] = {"type": pb.SENSOR_CAMERA, "sensor": sensor, "depth": req.depth}
+        reply.sensor.handle = path
+
+    def _h_create_imu(self, cmd, reply) -> None:
+        import numpy as np
+        from isaacsim.sensors.experimental.physics import IMU, IMUSensor
+
+        req = cmd.create_imu
+        path = req.prim_path or "/World/imu_sensor"
+        sensor = IMUSensor(
+            IMU.create(path, translations=np.array([[req.position.x, req.position.y, req.position.z]]))
+        )
+        self._sensors[path] = {"type": pb.SENSOR_IMU, "sensor": sensor}
+        reply.sensor.handle = path
+
+    def _h_subscribe(self, cmd, reply) -> None:
+        handle = cmd.subscribe.handle
+        if handle not in self._sensors:
+            raise KeyError(f"unknown sensor '{handle}'")
+        self.subscriptions.add(handle)
+
+    def _h_unsubscribe(self, cmd, reply) -> None:
+        self.subscriptions.discard(cmd.unsubscribe.handle)
+
+    def _h_get_sensor_frame(self, cmd, reply) -> None:
+        frame = self.build_frame(cmd.get_sensor_frame.handle)
+        if frame is None:
+            raise RuntimeError(f"no data available yet for sensor '{cmd.get_sensor_frame.handle}'")
+        reply.sensor_frame.CopyFrom(frame)
+
+    def build_frame(self, handle: str):
+        """Build a SensorFrame for a handle, or None if no data is ready yet."""
+        info = self._sensors.get(handle)
+        if info is None:
+            raise KeyError(f"unknown sensor '{handle}'")
+        if info["type"] == pb.SENSOR_CAMERA:
+            return self._frame_camera(handle, info)
+        if info["type"] == pb.SENSOR_IMU:
+            return self._frame_imu(handle, info)
+        return None
+
+    def _frame_header(self, handle, sensor_type):
+        return pb.SensorFrame(
+            handle=handle,
+            type=sensor_type,
+            frame=self._frame,
+            sim_time=float(self._timeline.get_current_time()),
+        )
+
+    def _frame_camera(self, handle, info):
+        import numpy as np
+
+        sensor = info["sensor"]
+        rgb, _ = sensor.get_data("rgb")
+        if rgb is None:
+            return None
+        arr = np.ascontiguousarray(rgb.numpy())
+        height, width = int(arr.shape[0]), int(arr.shape[1])
+        channels = int(arr.shape[2]) if arr.ndim == 3 else 1
+        frame = self._frame_header(handle, pb.SENSOR_CAMERA)
+        img = frame.image
+        img.width, img.height, img.channels = width, height, channels
+        img.encoding = {4: "rgba8", 3: "rgb8"}.get(channels, "gray8")
+        img.data = arr.astype(np.uint8).tobytes()
+        if info.get("depth"):
+            depth, _ = sensor.get_data("distance_to_image_plane")
+            if depth is not None:
+                img.depth = np.ascontiguousarray(depth.numpy()).astype(np.float32).tobytes()
+        return frame
+
+    def _frame_imu(self, handle, info):
+        import numpy as np
+
+        data = info["sensor"].get_data()
+        frame = self._frame_header(handle, pb.SENSOR_IMU)
+        acc = _imu_field(data, ("lin_acc", "linear_acceleration", "acceleration", "accel"))
+        gyro = _imu_field(data, ("ang_vel", "angular_velocity", "gyro"))
+        orient = _imu_field(data, ("orientation", "quat", "orientations"))
+        if acc is not None:
+            frame.imu.linear_acceleration.x, frame.imu.linear_acceleration.y, frame.imu.linear_acceleration.z = acc
+        if gyro is not None:
+            frame.imu.angular_velocity.x, frame.imu.angular_velocity.y, frame.imu.angular_velocity.z = gyro
+        if orient is not None and len(orient) == 4:
+            frame.imu.orientation.w, frame.imu.orientation.x, frame.imu.orientation.y, frame.imu.orientation.z = orient
+        return frame
 
     # ------------------------------------------------------------------ helpers
     @staticmethod

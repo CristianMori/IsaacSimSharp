@@ -1,6 +1,7 @@
 using IsaacSimSharp.Protocol;
 using IsaacSimSharp.Robots;
 using IsaacSimSharp.Scene;
+using IsaacSimSharp.Sensors;
 using IsaacSimSharp.Transport;
 
 namespace IsaacSimSharp;
@@ -12,13 +13,16 @@ namespace IsaacSimSharp;
 public sealed class IsaacSimClient : IDisposable
 {
     private readonly CommandChannel _commands;
+    private readonly SensorChannel _sensorStream;
 
     public IsaacSimClient(IsaacSimClientOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
         _commands = new CommandChannel(options.CommandEndpoint, options.RequestTimeout);
+        _sensorStream = new SensorChannel(options.SensorEndpoint);
         Scene = new SceneApi(_commands);
         Robots = new RobotsApi(_commands);
+        Sensors = new SensorsApi(_commands, _sensorStream);
     }
 
     /// <summary>Scene-configuration operations (ground plane, lights, primitives, references).</summary>
@@ -26,6 +30,9 @@ public sealed class IsaacSimClient : IDisposable
 
     /// <summary>Robot operations (register articulations, read/drive joints).</summary>
     public RobotsApi Robots { get; }
+
+    /// <summary>Sensor operations (create cameras/IMUs, pull frames, subscribe to streams).</summary>
+    public SensorsApi Sensors { get; }
 
     /// <summary>Connects to a bridge at the given command endpoint (defaults to localhost).</summary>
     public static IsaacSimClient Connect(string? commandEndpoint = null)
@@ -126,5 +133,9 @@ public sealed class IsaacSimClient : IDisposable
 
     private static void ThrowIfError(Reply reply) => reply.EnsureOk();
 
-    public void Dispose() => _commands.Dispose();
+    public void Dispose()
+    {
+        _commands.Dispose();
+        _sensorStream.Dispose();
+    }
 }
