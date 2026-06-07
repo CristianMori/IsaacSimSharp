@@ -5,7 +5,6 @@
     <Project Path="samples/SensorStream/SensorStream.csproj" />
   </Folder>
   <Folder Name="/src/">
-    <Project Path="src/IsaacSimSharp.Protocol/IsaacSimSharp.Protocol.csproj" />
     <Project Path="src/IsaacSimSharp/IsaacSimSharp.csproj" />
   </Folder>
   <Folder Name="/tests/">

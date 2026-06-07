@@ -51,6 +51,7 @@ message Command {
     GetSensorFrameRequest get_sensor_frame = 37;
     CreateContactRequest create_contact = 38;
     CreateLidarRequest create_lidar = 39;
+    // 40 reserved: radar (omitted — the experimental RTX radar plugin crashes Isaac Sim on create)
   }
 }
 

@@ -456,7 +456,7 @@ class Handlers:
         if info["type"] == pb.SENSOR_CONTACT:
             return self._frame_contact(handle, info)
         if info["type"] == pb.SENSOR_LIDAR:
-            return self._frame_lidar(handle, info)
+            return self._frame_gmo_point_cloud(handle, info, pb.SENSOR_LIDAR)
         return None
 
     def _frame_contact(self, handle, info):
@@ -479,7 +479,8 @@ class Handlers:
                 frame.contact.force_magnitude = float(force[0])
         return frame
 
-    def _frame_lidar(self, handle, info):
+    def _frame_gmo_point_cloud(self, handle, info, sensor_type):
+        """Shared decode for RTX lidar/radar 'generic-model-output' buffers into a point cloud."""
         import numpy as np
         from isaacsim.sensors.experimental.rtx import parse_generic_model_output_data
 
@@ -500,7 +501,7 @@ class Handlers:
             axis=-1,
         ).astype(np.float32)
 
-        frame = self._frame_header(handle, pb.SENSOR_LIDAR)
+        frame = self._frame_header(handle, sensor_type)
         frame.point_cloud.count = int(pts.shape[0])
         frame.point_cloud.points = np.ascontiguousarray(pts).tobytes()
         try:

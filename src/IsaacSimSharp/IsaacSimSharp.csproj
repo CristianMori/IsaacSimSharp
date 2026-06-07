@@ -1,17 +1,47 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
-  <ItemGroup>
-    <ProjectReference Include="..\IsaacSimSharp.Protocol\IsaacSimSharp.Protocol.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="NetMQ" Version="4.0.4.2" />
-  </ItemGroup>
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Generate XML docs for IntelliSense, but don't warn on undocumented (e.g. enum values). -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NetMQ" Version="4.0.4.2" />
+    <PackageReference Include="Google.Protobuf" Version="3.35.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.81.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- Generate the C# protobuf classes (no gRPC services) directly into this assembly,
+       so the SDK ships as a single self-contained package. -->
+  <ItemGroup>
+    <Protobuf Include="..\..\proto\isaacsim.proto"
+              ProtoRoot="..\..\proto"
+              GrpcServices="None"
+              Access="Public" />
+  </ItemGroup>
+
+  <!-- NuGet package metadata -->
+  <PropertyGroup>
+    <PackageId>IsaacSimSharp</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Cristian Mori</Authors>
+    <Description>A typed C# API for NVIDIA Isaac Sim 6.0: configure scenes, control robots, read sensors, and export USD over ZeroMQ + Protobuf.</Description>
+    <PackageTags>isaac-sim;robotics;simulation;nvidia;omniverse;usd</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/CristianMori/IsaacSimSharp</RepositoryUrl>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
 </Project>

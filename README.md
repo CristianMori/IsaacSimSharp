@@ -53,9 +53,8 @@ build, via Grpc.Tools) and the Python classes (via `tools/gen_proto.ps1`).
 
 | Path | What |
 |---|---|
-| `proto/isaacsim.proto` | wire protocol (commands + sensor frames) |
+| `proto/isaacsim.proto` | wire protocol (commands + sensor frames); C# classes are generated into the SDK at build |
 | `src/IsaacSimSharp/` | the C# SDK (`IsaacSimClient` + `Scene` / `Robots` / `Sensors` facades) |
-| `src/IsaacSimSharp.Protocol/` | generated C# protobuf classes |
 | `bridge/isaacsim_bridge/` | Python bridge that runs inside Isaac Sim |
 | `mock/mock_bridge.py` | pure-Python mock (no GPU) for dev, tests, CI |
 | `samples/` | `Quickstart` (scene + export), `RobotControl`, `SensorStream` (camera → PNG) |
@@ -132,4 +131,8 @@ dotnet test                                   # in another
 All four sensor types (camera, contact, lidar, IMU) and `ImportUrdfAsync` are verified live
 (camera RGB8+depth; contact `in_contact`/count/force-magnitude; lidar ~200k-point cloud with
 per-point intensity, decoded from the GMO buffer; URDF import of `assets/urdf/04-materials.urdf`
-→ `/World/robot`). IMU uses best-effort field extraction.
+→ `/World/robot`). IMU uses best-effort field extraction. RTX **radar** is intentionally not
+exposed — the experimental radar plugin crashes Isaac Sim on creation in this build.
+
+The SDK packs as a single self-contained NuGet package (`dotnet pack src/IsaacSimSharp`),
+depending only on `NetMQ` and `Google.Protobuf`.
