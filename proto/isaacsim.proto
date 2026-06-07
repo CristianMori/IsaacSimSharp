@@ -57,6 +57,10 @@ message Command {
     GetPrimRequest get_prim = 43;
     GetAttributeRequest get_attribute = 44;
     SetAttributeRequest set_attribute = 45;
+    GetTransformRequest get_transform = 46;
+    SetTransformRequest set_transform = 47;
+    GetBoundsRequest get_bounds = 48;
+    FindPrimsRequest find_prims = 49;
   }
 }
 
@@ -77,9 +81,11 @@ message Reply {
     DofStateReply dof_state = 31;
     SensorReply sensor = 33;       // returned by create_camera / create_imu
     SensorFrame sensor_frame = 37; // returned by get_sensor_frame (on-demand pull)
-    PrimListReply prim_list = 41;  // returned by list_prims
+    PrimListReply prim_list = 41;  // returned by list_prims and find_prims
     PrimDescReply prim_desc = 43;  // returned by get_prim
     AttributeReply attribute = 44; // returned by get_attribute
+    TransformReply transform = 46; // returned by get_transform
+    BoundsReply bounds = 48;       // returned by get_bounds
   }
 }
 
@@ -403,8 +409,50 @@ message GetPrimRequest { string prim_path = 1; }
 message PrimDescReply {
   bool exists = 1;
   string type_name = 2;
-  repeated string attributes = 3; // attribute names
-  repeated string children = 4;   // child prim paths
+  repeated string attributes = 3;     // attribute names
+  repeated string children = 4;       // child prim paths
+  bool active = 5;
+  string visibility = 6;              // "inherited" | "invisible" | ...
+  string kind = 7;                    // model kind, when set
+  repeated string applied_apis = 8;   // applied API schemas (e.g. PhysicsRigidBodyAPI)
+  repeated string relationships = 9;  // relationship names
+}
+
+// TRS transform. orientation is a quaternion (wxyz via Quat.w/x/y/z).
+message Transform {
+  Vec3 translation = 1;
+  Quat orientation = 2;
+  Vec3 scale = 3;
+}
+
+message GetTransformRequest {
+  string prim_path = 1;
+  bool world = 2; // true: world-space pose; false: local
+}
+message TransformReply { Transform transform = 1; }
+
+// Partial update: only the set message-fields (translation/orientation/scale) are applied.
+message SetTransformRequest {
+  string prim_path = 1;
+  bool world = 2;        // applies to translation/orientation
+  Vec3 translation = 3;
+  Quat orientation = 4;
+  Vec3 scale = 5;        // always local
+}
+
+message GetBoundsRequest { string prim_path = 1; }
+message BoundsReply {
+  bool valid = 1;
+  Vec3 min = 2; // world-space axis-aligned bounds
+  Vec3 max = 3;
+}
+
+// Filters are ANDed; empty fields are ignored.
+message FindPrimsRequest {
+  string root = 1;        // defaults to "/"
+  string type_name = 2;   // exact USD type
+  string name_regex = 3;  // regex on prim name
+  string has_api = 4;     // applied API schema name
 }
 
 message GetAttributeRequest {

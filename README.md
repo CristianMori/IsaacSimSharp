@@ -131,10 +131,18 @@ dotnet test                                   # in another
 - **Sensors** (`client.Sensors`): `CreateCameraAsync`, `CreateImuAsync`, `CreateContactAsync`,
   `CreateLidarAsync`, `CreateRadarAsync` (needs `--motion-bvh`), `GetFrameAsync` (pull),
   `StreamAsync` (push, `IAsyncEnumerable`).
-- **USD** (`client.Usd`): generic, reflective stage access — `ListPrimsAsync` (enumerate),
-  `GetPrimAsync` (inspect type/attrs/children), `DefinePrimAsync` (instantiate any USD type),
-  `GetAttributeAsync` / `SetAttributeAsync` (read/write any attribute; typed overloads for
-  bool/long/double/string/Vector3).
+- **USD** (`client.Usd`): generic, reflective stage access — `ListPrimsAsync` / `FindPrimsAsync`
+  (enumerate/query by type/name/API), `GetPrimAsync` (type/attrs/children/metadata/applied APIs),
+  `DefinePrimAsync` (instantiate any USD type), `GetAttributeAsync` / `SetAttributeAsync`
+  (read/write any attribute), `GetTransformAsync` / `SetTransformAsync` / `GetBoundsAsync`.
+- **Handles** (object paradigm): `client.CreateCubeAsync` / `client.GetPrim` / `client.DefinePrimAsync`
+  return `Prim` / `Cube` objects with async methods (`SetPositionAsync`, `GetBoundsAsync`,
+  `GetChildrenAsync`, …) and a batched `EditAsync()` scope for fluent edits:
+  ```csharp
+  var cube = await isaac.CreateCubeAsync("/World/Box");
+  await cube.SetPositionAsync(1, 2, 3);
+  await using (var e = await cube.EditAsync()) { e.Size.Width = 30; e.Position.Y += 4; } // one round-trip
+  ```
 
 ## Status
 

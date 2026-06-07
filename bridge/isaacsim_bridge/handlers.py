@@ -689,14 +689,24 @@ class Handlers:
         reply.prim.prim_path = str(prim.GetPath())
 
     def _h_get_prim(self, cmd, reply) -> None:
+        from pxr import Usd, UsdGeom
+
         prim = self._stage().GetPrimAtPath(cmd.get_prim.prim_path)
         if not prim.IsValid():
             reply.prim_desc.exists = False
             return
-        reply.prim_desc.exists = True
-        reply.prim_desc.type_name = prim.GetTypeName()
-        reply.prim_desc.attributes.extend(a.GetName() for a in prim.GetAttributes())
-        reply.prim_desc.children.extend(str(c.GetPath()) for c in prim.GetChildren())
+        desc = reply.prim_desc
+        desc.exists = True
+        desc.type_name = prim.GetTypeName()
+        desc.attributes.extend(a.GetName() for a in prim.GetAttributes())
+        desc.children.extend(str(c.GetPath()) for c in prim.GetChildren())
+        desc.active = prim.IsActive()
+        desc.applied_apis.extend(prim.GetAppliedSchemas())
+        desc.relationships.extend(r.GetName() for r in prim.GetRelationships())
+        desc.kind = Usd.ModelAPI(prim).GetKind() or ""
+        imageable = UsdGeom.Imageable(prim)
+        if imageable:
+            desc.visibility = str(imageable.ComputeVisibility())
 
     def _h_get_attribute(self, cmd, reply) -> None:
         req = cmd.get_attribute
@@ -720,6 +730,89 @@ class Handlers:
             attr = prim.CreateAttribute(req.name, sdf_type)
         if not attr.Set(value):
             raise RuntimeError(f"failed to set attribute '{req.name}' on '{req.prim_path}'")
+
+    def _h_get_transform(self, cmd, reply) -> None:
+        import numpy as np
+
+        xform = self._xform(cmd.get_transform.prim_path)
+        if cmd.get_transform.world:
+            positions, orientations = xform.get_world_poses()
+        else:
+            positions, orientations = xform.get_local_poses()
+        scales = xform.get_local_scales()
+        p = np.asarray(positions.numpy()).reshape(-1)
+        o = np.asarray(orientations.numpy()).reshape(-1)  # wxyz
+        s = np.asarray(scales.numpy()).reshape(-1)
+        t = reply.transform.transform
+        t.translation.x, t.translation.y, t.translation.z = float(p[0]), float(p[1]), float(p[2])
+        t.orientation.w, t.orientation.x, t.orientation.y, t.orientation.z = (
+            float(o[0]), float(o[1]), float(o[2]), float(o[3]))
+        t.scale.x, t.scale.y, t.scale.z = float(s[0]), float(s[1]), float(s[2])
+
+    def _h_set_transform(self, cmd, reply) -> None:
+        import numpy as np
+
+        req = cmd.set_transform
+        xform = self._xform(req.prim_path)
+        has_t, has_o, has_s = req.HasField("translation"), req.HasField("orientation"), req.HasField("scale")
+        if has_t or has_o:
+            positions = np.array([[req.translation.x, req.translation.y, req.translation.z]]) if has_t else None
+            orientations = (
+                np.array([[req.orientation.w, req.orientation.x, req.orientation.y, req.orientation.z]])
+                if has_o else None)
+            if req.world:
+                xform.set_world_poses(positions=positions, orientations=orientations)
+            else:
+                xform.set_local_poses(positions=positions, orientations=orientations)
+        if has_s:
+            xform.set_local_scales(np.array([[req.scale.x, req.scale.y, req.scale.z]]))
+
+    def _h_get_bounds(self, cmd, reply) -> None:
+        from pxr import Usd, UsdGeom
+
+        prim = self._stage().GetPrimAtPath(cmd.get_bounds.prim_path)
+        if not prim.IsValid():
+            reply.bounds.valid = False
+            return
+        cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
+        rng = cache.ComputeWorldBound(prim).ComputeAlignedRange()
+        if rng.IsEmpty():
+            reply.bounds.valid = False
+            return
+        mn, mx = rng.GetMin(), rng.GetMax()
+        reply.bounds.valid = True
+        reply.bounds.min.x, reply.bounds.min.y, reply.bounds.min.z = mn[0], mn[1], mn[2]
+        reply.bounds.max.x, reply.bounds.max.y, reply.bounds.max.z = mx[0], mx[1], mx[2]
+
+    def _h_find_prims(self, cmd, reply) -> None:
+        import re
+
+        from pxr import Usd
+
+        stage = self._stage()
+        req = cmd.find_prims
+        root = req.root or "/"
+        root_prim = stage.GetPseudoRoot() if root == "/" else stage.GetPrimAtPath(root)
+        if not root_prim.IsValid():
+            raise KeyError(f"prim not found '{root}'")
+        pattern = re.compile(req.name_regex) if req.name_regex else None
+        for prim in Usd.PrimRange(root_prim):
+            if prim == root_prim:
+                continue
+            if req.type_name and prim.GetTypeName() != req.type_name:
+                continue
+            if pattern and not pattern.search(prim.GetName()):
+                continue
+            if req.has_api and req.has_api not in prim.GetAppliedSchemas():
+                continue
+            info = reply.prim_list.prims.add()
+            info.path = str(prim.GetPath())
+            info.type_name = prim.GetTypeName()
+
+    def _xform(self, path: str):
+        from isaacsim.core.experimental.prims import XformPrim
+
+        return XformPrim(paths=path)
 
     def _stage(self):
         stage = self._omni_usd.get_context().get_stage()

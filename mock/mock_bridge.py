@@ -36,6 +36,18 @@ _PRIM_OPS = {
     "import_urdf": "/World/Urdf",
 }
 
+_PRIM_TYPES = {
+    "add_ground_plane": "Plane",
+    "add_light": "DistantLight",
+    "add_primitive": "Cube",
+    "add_reference": "Xform",
+    "import_urdf": "Xform",
+}
+
+
+def _identity_xform():
+    return {"t": [0.0, 0.0, 0.0], "o": [1.0, 0.0, 0.0, 0.0], "s": [1.0, 1.0, 1.0]}
+
 
 def make_frame(handle: str, state: dict) -> "pb.SensorFrame":
     import struct
@@ -84,7 +96,15 @@ def handle(cmd: "pb.Command", state: dict) -> "pb.Reply":
     elif which == "export_usd":
         reply.export_usd.path = cmd.export_usd.path or "(mock).usda"
     elif which in _PRIM_OPS:
-        reply.prim.prim_path = getattr(cmd, which).prim_path or _PRIM_OPS[which]
+        path = getattr(cmd, which).prim_path or _PRIM_OPS[which]
+        reply.prim.prim_path = path
+        entry = {"type": _PRIM_TYPES[which], "attrs": {}, "xform": _identity_xform()}
+        if which == "add_primitive":
+            p = cmd.add_primitive.position
+            entry["xform"]["t"] = [p.x, p.y, p.z]
+            size = cmd.add_primitive.size or 0.5
+            entry["xform"]["s"] = [size, size, size]
+        state["stage"][path] = entry
     elif which == "get_assets_root":
         reply.get_assets_root.path = "mock://assets"
     elif which == "register_articulation":
@@ -139,8 +159,51 @@ def handle(cmd: "pb.Command", state: dict) -> "pb.Reply":
         state["stage"] = {}
     elif which == "define_prim":
         p = cmd.define_prim.prim_path
-        state["stage"][p] = {"type": cmd.define_prim.type_name, "attrs": {}}
+        state["stage"][p] = {"type": cmd.define_prim.type_name, "attrs": {}, "xform": _identity_xform()}
         reply.prim.prim_path = p
+    elif which == "get_transform":
+        xf = state["stage"].get(cmd.get_transform.prim_path, {}).get("xform", _identity_xform())
+        t = reply.transform.transform
+        t.translation.x, t.translation.y, t.translation.z = xf["t"]
+        t.orientation.w, t.orientation.x, t.orientation.y, t.orientation.z = xf["o"]
+        t.scale.x, t.scale.y, t.scale.z = xf["s"]
+    elif which == "set_transform":
+        req = cmd.set_transform
+        entry = state["stage"].setdefault(req.prim_path, {"type": "", "attrs": {}, "xform": _identity_xform()})
+        xf = entry.setdefault("xform", _identity_xform())
+        if req.HasField("translation"):
+            xf["t"] = [req.translation.x, req.translation.y, req.translation.z]
+        if req.HasField("orientation"):
+            xf["o"] = [req.orientation.w, req.orientation.x, req.orientation.y, req.orientation.z]
+        if req.HasField("scale"):
+            xf["s"] = [req.scale.x, req.scale.y, req.scale.z]
+    elif which == "get_bounds":
+        entry = state["stage"].get(cmd.get_bounds.prim_path)
+        if entry is None:
+            reply.bounds.valid = False
+        else:
+            xf = entry.get("xform", _identity_xform())
+            t, s = xf["t"], xf["s"]
+            reply.bounds.valid = True
+            reply.bounds.min.x, reply.bounds.min.y, reply.bounds.min.z = (t[0] - s[0] / 2, t[1] - s[1] / 2, t[2] - s[2] / 2)
+            reply.bounds.max.x, reply.bounds.max.y, reply.bounds.max.z = (t[0] + s[0] / 2, t[1] + s[1] / 2, t[2] + s[2] / 2)
+    elif which == "find_prims":
+        import re
+        req = cmd.find_prims
+        root = req.root or "/"
+        pat = re.compile(req.name_regex) if req.name_regex else None
+        for path, info in state["stage"].items():
+            if root != "/" and not (path == root or path.startswith(root + "/")):
+                continue
+            if path == root:
+                continue
+            if req.type_name and info.get("type") != req.type_name:
+                continue
+            if pat and not pat.search(path.rsplit("/", 1)[-1]):
+                continue
+            pi = reply.prim_list.prims.add()
+            pi.path = path
+            pi.type_name = info.get("type", "")
     elif which == "list_prims":
         root = cmd.list_prims.root or "/"
         for path, info in state["stage"].items():

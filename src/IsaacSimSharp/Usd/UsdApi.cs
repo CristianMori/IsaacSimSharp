@@ -58,6 +58,56 @@ public sealed class UsdApi
         (await _commands.SendAsync(new Command { SetAttribute = request }, cancellationToken).ConfigureAwait(false)).EnsureOk();
     }
 
+    /// <summary>Reads a prim's transform (world or local) as translation/orientation/scale.</summary>
+    public async Task<Transform> GetTransformAsync(string primPath, bool world = true, CancellationToken cancellationToken = default)
+    {
+        var reply = (await _commands
+            .SendAsync(new Command { GetTransform = new GetTransformRequest { PrimPath = primPath, World = world } }, cancellationToken)
+            .ConfigureAwait(false)).EnsureOk();
+        return reply.Transform.Transform;
+    }
+
+    /// <summary>Writes a prim's transform; only the provided components are applied.</summary>
+    public async Task SetTransformAsync(
+        string primPath,
+        Vector3? translation = null,
+        Quaternion? orientation = null,
+        Vector3? scale = null,
+        bool world = true,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new SetTransformRequest { PrimPath = primPath, World = world };
+        if (translation is { } t)
+            request.Translation = new Vec3 { X = t.X, Y = t.Y, Z = t.Z };
+        if (orientation is { } o)
+            request.Orientation = new Quat { X = o.X, Y = o.Y, Z = o.Z, W = o.W };
+        if (scale is { } s)
+            request.Scale = new Vec3 { X = s.X, Y = s.Y, Z = s.Z };
+        (await _commands.SendAsync(new Command { SetTransform = request }, cancellationToken).ConfigureAwait(false)).EnsureOk();
+    }
+
+    /// <summary>Returns the world-space axis-aligned bounding box of a prim.</summary>
+    public async Task<BoundsReply> GetBoundsAsync(string primPath, CancellationToken cancellationToken = default)
+    {
+        var reply = (await _commands
+            .SendAsync(new Command { GetBounds = new GetBoundsRequest { PrimPath = primPath } }, cancellationToken)
+            .ConfigureAwait(false)).EnsureOk();
+        return reply.Bounds;
+    }
+
+    /// <summary>Finds prims under <paramref name="root"/> matching all the given filters (empty = ignored).</summary>
+    public async Task<IReadOnlyList<PrimInfo>> FindPrimsAsync(
+        string root = "/",
+        string typeName = "",
+        string nameRegex = "",
+        string hasApi = "",
+        CancellationToken cancellationToken = default)
+    {
+        var request = new FindPrimsRequest { Root = root, TypeName = typeName, NameRegex = nameRegex, HasApi = hasApi };
+        var reply = (await _commands.SendAsync(new Command { FindPrims = request }, cancellationToken).ConfigureAwait(false)).EnsureOk();
+        return reply.PrimList.Prims;
+    }
+
     // ---- typed convenience setters ----
     public Task SetAttributeAsync(string primPath, string name, bool value, CancellationToken cancellationToken = default)
         => SetAttributeAsync(primPath, name, new UsdValue { BoolValue = value }, cancellationToken);

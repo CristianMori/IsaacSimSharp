@@ -1,3 +1,5 @@
+using System.Numerics;
+using IsaacSimSharp.Handles;
 using IsaacSimSharp.Protocol;
 using IsaacSimSharp.Robots;
 using IsaacSimSharp.Scene;
@@ -128,6 +130,32 @@ public sealed class IsaacSimClient : IDisposable
             .ConfigureAwait(false);
         reply.EnsureOk();
         return reply.GetAssetsRoot.Path;
+    }
+
+    // ----------------------------------------------------------------- handles
+
+    /// <summary>Wraps an existing prim path as a <see cref="Prim"/> handle (no I/O).</summary>
+    public Prim GetPrim(string primPath) => new(this, primPath);
+
+    /// <summary>Defines a prim of any USD type and returns a handle to it.</summary>
+    public async Task<Prim> DefinePrimAsync(string primPath, string typeName, CancellationToken cancellationToken = default)
+    {
+        await Usd.DefinePrimAsync(primPath, typeName, cancellationToken).ConfigureAwait(false);
+        return new Prim(this, primPath);
+    }
+
+    /// <summary>Creates a cube and returns a <see cref="Cube"/> handle (size defaults to a unit cube so scale == dimensions).</summary>
+    public async Task<Cube> CreateCubeAsync(
+        string primPath,
+        Vector3 position = default,
+        double size = 1.0,
+        bool collision = false,
+        bool rigid = false,
+        CancellationToken cancellationToken = default)
+    {
+        await Scene.AddPrimitiveAsync(primPath, PrimitiveShape.Cube, position, size, collision: collision, rigid: rigid, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        return new Cube(this, primPath);
     }
 
     private async Task AckAsync(Command command, CancellationToken cancellationToken)
