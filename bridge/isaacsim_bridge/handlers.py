@@ -146,6 +146,7 @@ class Handlers:
 
     # ------------------------------------------------------------------ dispatch
     def dispatch(self, cmd: "pb.Command") -> "pb.Reply":
+        """Route a Command to its _h_<name> handler and return a Reply; any exception becomes an error reply."""
         reply = pb.Reply(id=cmd.id, ok=True)
         which = cmd.WhichOneof("request")
         try:
@@ -164,19 +165,23 @@ class Handlers:
 
     # ------------------------------------------------------------------ lifecycle
     def _h_ping(self, cmd, reply) -> None:
+        """Ping: echo the request message back to the client."""
         reply.ping.message = cmd.ping.message
 
     def _h_get_version(self, cmd, reply) -> None:
+        """GetVersion: report the Isaac Sim, bridge, and protocol versions."""
         v = reply.get_version
         v.isaac_sim_version = self._isaac_version()
         v.bridge_version = __version__
         v.protocol_version = PROTOCOL_VERSION
 
     def _h_new_stage(self, cmd, reply) -> None:
+        """NewStage: drop cached wrappers and create a fresh, empty USD stage."""
         self._reset_registries()  # old wrappers point at prims that no longer exist
         self._stage_utils.create_new_stage()
 
     def _h_open_stage(self, cmd, reply) -> None:
+        """OpenStage: drop cached wrappers and open a USD file from disk."""
         path = os.path.abspath(cmd.open_stage.path)
         if not os.path.exists(path):
             raise FileNotFoundError(path)
@@ -184,24 +189,30 @@ class Handlers:
         self._omni_usd.get_context().open_stage(path)
 
     def _reset_registries(self) -> None:
+        """Forget cached articulations/sensors/subscriptions (their prims may be gone after a stage change)."""
         self._articulations.clear()
         self._sensors.clear()
         self.subscriptions.clear()
 
     def _h_play(self, cmd, reply) -> None:
+        """Play: start the simulation timeline."""
         self._timeline.play()
 
     def _h_pause(self, cmd, reply) -> None:
+        """Pause: pause the timeline (rendering continues)."""
         self._timeline.pause()
 
     def _h_stop(self, cmd, reply) -> None:
+        """Stop: stop and rewind the timeline to the start."""
         self._timeline.stop()
 
     def _h_reset(self, cmd, reply) -> None:
+        """Reset: stop the timeline, restoring prims to their initial state."""
         # For an empty/simple stage this rewinds to the initial state.
         self._timeline.stop()
 
     def _h_step(self, cmd, reply) -> None:
+        """Step: advance the app by N frames and report the new frame index and sim time."""
         count = cmd.step.count or 1
         for _ in range(count):
             self.sim_app.update()
@@ -210,11 +221,13 @@ class Handlers:
         reply.step.sim_time = float(self._timeline.get_current_time())
 
     def _h_set_physics_dt(self, cmd, reply) -> None:
+        """SetPhysicsDt: set the physics timestep, in seconds."""
         from isaacsim.core.simulation_manager import SimulationManager
 
         SimulationManager.set_physics_dt(cmd.set_physics_dt.dt)
 
     def _h_export_usd(self, cmd, reply) -> None:
+        """ExportUsd: write the current stage to a .usd/.usda file (creating parent dirs)."""
         path = cmd.export_usd.path
         if not path:
             raise ValueError("export path is empty")
@@ -229,10 +242,12 @@ class Handlers:
         reply.export_usd.path = path
 
     def _h_shutdown(self, cmd, reply) -> None:
+        """Shutdown: ask the server loop to stop and close Isaac Sim."""
         self.should_shutdown = True
 
     # ------------------------------------------------------------------ scene
     def _h_add_ground_plane(self, cmd, reply) -> None:
+        """AddGroundPlane: add a default ground plane prim."""
         from isaacsim.core.experimental.objects import GroundPlane
 
         path = cmd.add_ground_plane.prim_path or "/World/GroundPlane"
@@ -240,6 +255,7 @@ class Handlers:
         reply.prim.prim_path = path
 
     def _h_add_light(self, cmd, reply) -> None:
+        """AddLight: add a light of the requested kind, intensity, and (best-effort) color."""
         from isaacsim.core.experimental.objects import (
             DistantLight,
             DomeLight,
@@ -265,6 +281,7 @@ class Handlers:
         reply.prim.prim_path = path
 
     def _h_add_primitive(self, cmd, reply) -> None:
+        """AddPrimitive: create a shape prim, optionally with a collider/rigid body and a pose."""
         import numpy as np
         from isaacsim.core.experimental.objects import (
             Capsule,
@@ -307,6 +324,7 @@ class Handlers:
         reply.prim.prim_path = path
 
     def _h_add_reference(self, cmd, reply) -> None:
+        """AddReference: reference an external USD asset onto the stage."""
         req = cmd.add_reference
         if not req.usd_path:
             raise ValueError("usd_path is required")
@@ -315,6 +333,7 @@ class Handlers:
         reply.prim.prim_path = path
 
     def _h_set_prim_pose(self, cmd, reply) -> None:
+        """SetPrimPose: set a prim's world position and orientation."""
         import numpy as np
         from isaacsim.core.experimental.prims import XformPrim
 
@@ -330,11 +349,13 @@ class Handlers:
         )
 
     def _h_remove_prim(self, cmd, reply) -> None:
+        """RemovePrim: delete a prim (and its subtree) from the stage."""
         stage = self._omni_usd.get_context().get_stage()
         if not stage.RemovePrim(cmd.remove_prim.prim_path):
             raise RuntimeError(f"failed to remove prim '{cmd.remove_prim.prim_path}'")
 
     def _h_import_urdf(self, cmd, reply) -> None:
+        """ImportUrdf: convert a URDF to USD and reference the result onto the stage."""
         import tempfile
 
         from isaacsim.asset.importer.urdf.impl import URDFImporter, URDFImporterConfig
@@ -364,6 +385,7 @@ class Handlers:
         reply.prim.prim_path = prim_path
 
     def _ensure_urdf_extensions(self) -> None:
+        """Enable the extensions the URDF importer needs (once per process)."""
         if getattr(self, "_urdf_ext_ready", False):
             return
         import omni.kit.app
@@ -375,11 +397,13 @@ class Handlers:
 
     # ------------------------------------------------------------------ robots
     def _h_get_assets_root(self, cmd, reply) -> None:
+        """GetAssetsRoot: resolve the Isaac Sim asset-library root path/URL."""
         from isaacsim.storage.native import get_assets_root_path
 
         reply.get_assets_root.path = get_assets_root_path() or ""
 
     def _h_register_articulation(self, cmd, reply) -> None:
+        """RegisterArticulation: wrap a robot prim and report its DOF names/count."""
         from isaacsim.core.experimental.prims import Articulation
 
         path = cmd.register_articulation.prim_path
@@ -397,6 +421,7 @@ class Handlers:
             reply.articulation.dof_count = len(names)
 
     def _h_get_dof_state(self, cmd, reply) -> None:
+        """GetDofState: read joint positions, velocities, and (if available) efforts."""
         art = self._articulation(cmd.get_dof_state.prim_path)
         reply.dof_state.positions.extend(art.get_dof_positions().numpy().reshape(-1).tolist())
         reply.dof_state.velocities.extend(art.get_dof_velocities().numpy().reshape(-1).tolist())
@@ -406,6 +431,7 @@ class Handlers:
             pass
 
     def _h_set_dof_targets(self, cmd, reply) -> None:
+        """SetDofTargets: drive joints by position or velocity targets, or direct efforts."""
         import numpy as np
 
         req = cmd.set_dof_targets
@@ -420,6 +446,7 @@ class Handlers:
             art.set_dof_position_targets(values, dof_indices=indices)
 
     def _articulation(self, path: str):
+        """Return the cached Articulation wrapper for a prim path, creating it if needed."""
         art = self._articulations.get(path)
         if art is None:
             from isaacsim.core.experimental.prims import Articulation
@@ -430,6 +457,7 @@ class Handlers:
 
     # ------------------------------------------------------------------ sensors
     def _h_create_camera(self, cmd, reply) -> None:
+        """CreateCamera: create an RTX camera + render product; returns its handle."""
         import numpy as np
         from isaacsim.sensors.experimental.rtx import CameraSensor, RtxCamera
 
@@ -452,6 +480,7 @@ class Handlers:
         reply.sensor.handle = path
 
     def _h_create_imu(self, cmd, reply) -> None:
+        """CreateImu: create an IMU sensor on a body; returns its handle."""
         import numpy as np
         from isaacsim.sensors.experimental.physics import IMU, IMUSensor
 
@@ -464,6 +493,7 @@ class Handlers:
         reply.sensor.handle = path
 
     def _h_create_contact(self, cmd, reply) -> None:
+        """CreateContact: create a contact sensor on a body; returns its handle."""
         import numpy as np
         from isaacsim.sensors.experimental.physics import Contact, ContactSensor
 
@@ -485,6 +515,7 @@ class Handlers:
         reply.sensor.handle = path
 
     def _h_create_lidar(self, cmd, reply) -> None:
+        """CreateLidar: create an RTX lidar (generic-model-output annotator); returns its handle."""
         import numpy as np
         from isaacsim.core.experimental.utils.app import enable_extension
         from isaacsim.sensors.experimental.rtx import Lidar, LidarSensor
@@ -502,6 +533,7 @@ class Handlers:
         reply.sensor.handle = path
 
     def _h_create_radar(self, cmd, reply) -> None:
+        """CreateRadar: create an RTX radar; requires Motion BVH or it fails fast."""
         import carb
         import numpy as np
         from isaacsim.core.experimental.utils.app import enable_extension
@@ -525,15 +557,18 @@ class Handlers:
         reply.sensor.handle = path
 
     def _h_subscribe(self, cmd, reply) -> None:
+        """Subscribe: start publishing this sensor's frames over the PUB/SUB socket."""
         handle = cmd.subscribe.handle
         if handle not in self._sensors:
             raise KeyError(f"unknown sensor '{handle}'")
         self.subscriptions.add(handle)
 
     def _h_unsubscribe(self, cmd, reply) -> None:
+        """Unsubscribe: stop publishing this sensor's frames."""
         self.subscriptions.discard(cmd.unsubscribe.handle)
 
     def _h_get_sensor_frame(self, cmd, reply) -> None:
+        """GetSensorFrame: build and return a single frame for a sensor (on-demand pull)."""
         frame = self.build_frame(cmd.get_sensor_frame.handle)
         if frame is None:
             raise RuntimeError(f"no data available yet for sensor '{cmd.get_sensor_frame.handle}'")
@@ -610,6 +645,7 @@ class Handlers:
         return frame
 
     def _frame_header(self, handle, sensor_type):
+        """Make a SensorFrame pre-filled with handle, type, frame counter, and sim time."""
         return pb.SensorFrame(
             handle=handle,
             type=sensor_type,
@@ -656,6 +692,7 @@ class Handlers:
 
     # ------------------------------------------------------------------ generic USD
     def _h_list_prims(self, cmd, reply) -> None:
+        """ListPrims: enumerate prims under a root (whole subtree, or direct children only)."""
         from pxr import Usd
 
         stage = self._stage()
@@ -681,6 +718,7 @@ class Handlers:
                 info.type_name = child.GetTypeName()
 
     def _h_define_prim(self, cmd, reply) -> None:
+        """DefinePrim: create a prim of any USD type (or typeless); returns its path."""
         stage = self._stage()
         req = cmd.define_prim
         prim = stage.DefinePrim(req.prim_path, req.type_name) if req.type_name else stage.DefinePrim(req.prim_path)
@@ -689,6 +727,7 @@ class Handlers:
         reply.prim.prim_path = str(prim.GetPath())
 
     def _h_get_prim(self, cmd, reply) -> None:
+        """GetPrim: report a prim's type, attributes, children, metadata, applied APIs, relationships."""
         from pxr import Usd, UsdGeom
 
         prim = self._stage().GetPrimAtPath(cmd.get_prim.prim_path)
@@ -709,6 +748,7 @@ class Handlers:
             desc.visibility = str(imageable.ComputeVisibility())
 
     def _h_get_attribute(self, cmd, reply) -> None:
+        """GetAttribute: read a USD attribute as a typed UsdValue."""
         req = cmd.get_attribute
         prim = self._stage().GetPrimAtPath(req.prim_path)
         attr = prim.GetAttribute(req.name) if prim.IsValid() else None
@@ -720,6 +760,7 @@ class Handlers:
         reply.attribute.value.CopyFrom(_usd_to_value(attr.Get()))
 
     def _h_set_attribute(self, cmd, reply) -> None:
+        """SetAttribute: write a USD attribute, creating it (with an inferred type) if absent."""
         req = cmd.set_attribute
         prim = self._stage().GetPrimAtPath(req.prim_path)
         if not prim.IsValid():
@@ -732,6 +773,7 @@ class Handlers:
             raise RuntimeError(f"failed to set attribute '{req.name}' on '{req.prim_path}'")
 
     def _h_get_transform(self, cmd, reply) -> None:
+        """GetTransform: read a prim's world or local translation, orientation, and scale."""
         import numpy as np
 
         xform = self._xform(cmd.get_transform.prim_path)
@@ -750,6 +792,7 @@ class Handlers:
         t.scale.x, t.scale.y, t.scale.z = float(s[0]), float(s[1]), float(s[2])
 
     def _h_set_transform(self, cmd, reply) -> None:
+        """SetTransform: write only the provided translation/orientation/scale components."""
         import numpy as np
 
         req = cmd.set_transform
@@ -768,6 +811,7 @@ class Handlers:
             xform.set_local_scales(np.array([[req.scale.x, req.scale.y, req.scale.z]]))
 
     def _h_get_bounds(self, cmd, reply) -> None:
+        """GetBounds: compute a prim's world-space axis-aligned bounding box."""
         from pxr import Usd, UsdGeom
 
         prim = self._stage().GetPrimAtPath(cmd.get_bounds.prim_path)
@@ -785,6 +829,7 @@ class Handlers:
         reply.bounds.max.x, reply.bounds.max.y, reply.bounds.max.z = mx[0], mx[1], mx[2]
 
     def _h_find_prims(self, cmd, reply) -> None:
+        """FindPrims: enumerate prims matching type / name-regex / applied-API filters."""
         import re
 
         from pxr import Usd
@@ -811,17 +856,20 @@ class Handlers:
 
     # ------------------------------------------------------------------ manipulation
     def _h_set_visibility(self, cmd, reply) -> None:
+        """SetVisibility: show or hide a prim."""
         import numpy as np
 
         self._xform(cmd.set_visibility.prim_path).set_visibilities(np.array([cmd.set_visibility.visible]))
 
     def _h_set_active(self, cmd, reply) -> None:
+        """SetActive: activate or deactivate a prim (and its subtree)."""
         prim = self._stage().GetPrimAtPath(cmd.set_active.prim_path)
         if not prim.IsValid():
             raise KeyError(f"prim not found '{cmd.set_active.prim_path}'")
         prim.SetActive(cmd.set_active.active)
 
     def _h_apply_schema(self, cmd, reply) -> None:
+        """ApplySchema: apply a physics (or any) API schema to a prim."""
         from pxr import UsdPhysics
 
         prim = self._stage().GetPrimAtPath(cmd.apply_schema.prim_path)
@@ -838,6 +886,7 @@ class Handlers:
             prim.AddAppliedSchema(schema)
 
     def _h_set_mass(self, cmd, reply) -> None:
+        """SetMass: apply PhysicsMassAPI and set the rigid-body mass."""
         from pxr import UsdPhysics
 
         prim = self._stage().GetPrimAtPath(cmd.set_mass.prim_path)
@@ -846,6 +895,7 @@ class Handlers:
         UsdPhysics.MassAPI.Apply(prim).CreateMassAttr().Set(float(cmd.set_mass.mass))
 
     def _h_create_material(self, cmd, reply) -> None:
+        """CreateMaterial: create a UsdPreviewSurface material; returns its path."""
         from pxr import Gf, Sdf, UsdShade
 
         req = cmd.create_material
@@ -862,6 +912,7 @@ class Handlers:
         reply.prim.prim_path = path
 
     def _h_bind_material(self, cmd, reply) -> None:
+        """BindMaterial: bind a material to a prim."""
         from pxr import UsdShade
 
         stage = self._stage()
@@ -873,6 +924,7 @@ class Handlers:
 
     # ------------------------------------------------------------------ runtime physics
     def _h_set_rigid_pose(self, cmd, reply) -> None:
+        """SetRigidPose: teleport a rigid body to a world pose (takes effect immediately)."""
         import numpy as np
 
         req = cmd.set_rigid_pose
@@ -882,6 +934,7 @@ class Handlers:
         )
 
     def _h_set_velocity(self, cmd, reply) -> None:
+        """SetVelocity: set a rigid body's linear and angular velocity."""
         import numpy as np
 
         req = cmd.set_velocity
@@ -891,6 +944,7 @@ class Handlers:
         )
 
     def _h_get_velocity(self, cmd, reply) -> None:
+        """GetVelocity: read a rigid body's linear and angular velocity."""
         import numpy as np
 
         linear, angular = self._rigid(cmd.get_velocity.prim_path).get_velocities()
@@ -902,6 +956,7 @@ class Handlers:
             float(ang[0]), float(ang[1]), float(ang[2]))
 
     def _h_raycast(self, cmd, reply) -> None:
+        """Raycast: closest-hit physics raycast; reports collider, point, normal, distance."""
         from omni.physx import get_physx_scene_query_interface
 
         req = cmd.raycast
@@ -922,6 +977,7 @@ class Handlers:
         reply.raycast.distance = float(hit.get("distance", 0.0))
 
     def _h_move_prim(self, cmd, reply) -> None:
+        """MovePrim: move/rename a prim to a new path via the Kit MovePrim command."""
         import omni.kit.commands
 
         req = cmd.move_prim
@@ -933,6 +989,7 @@ class Handlers:
         reply.prim.prim_path = req.new_path
 
     def _h_duplicate_prim(self, cmd, reply) -> None:
+        """DuplicatePrim: copy a prim to a new path via the Kit CopyPrim command."""
         import omni.kit.commands
 
         req = cmd.duplicate_prim
@@ -944,16 +1001,19 @@ class Handlers:
         reply.prim.prim_path = req.new_path
 
     def _xform(self, path: str):
+        """Create an experimental XformPrim wrapper for a prim path."""
         from isaacsim.core.experimental.prims import XformPrim
 
         return XformPrim(paths=path)
 
     def _rigid(self, path: str):
+        """Create an experimental RigidPrim wrapper for a prim path."""
         from isaacsim.core.experimental.prims import RigidPrim
 
         return RigidPrim(paths=path)
 
     def _stage(self):
+        """Return the current USD stage, raising if there is none."""
         stage = self._omni_usd.get_context().get_stage()
         if stage is None:
             raise RuntimeError("no active stage")
