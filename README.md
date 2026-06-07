@@ -129,5 +129,6 @@ dotnet test                                   # in another
 | Robot control | Franka loaded, 9 DOFs, arm drives to target |
 | Sensors (pull + push) | RTX camera 640×480 RGB8 + depth, streamed and pulled |
 
-`AddReferenceAsync` and the camera/IMU stream are verified; `ImportUrdfAsync` is implemented but
-needs a URDF input to verify. Contact and lidar sensors are not implemented yet.
+`AddReferenceAsync`, the camera stream, and `ImportUrdfAsync` are verified live (URDF import was
+checked with `assets/urdf/04-materials.urdf`, producing `/World/robot` → `base_link`/legs). IMU
+streaming uses best-effort field extraction. Contact and lidar sensors are not implemented yet.

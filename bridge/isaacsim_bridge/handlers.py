@@ -242,15 +242,43 @@ class Handlers:
             raise RuntimeError(f"failed to remove prim '{cmd.remove_prim.prim_path}'")
 
     def _h_import_urdf(self, cmd, reply) -> None:
+        import tempfile
+
         from isaacsim.asset.importer.urdf.impl import URDFImporter, URDFImporterConfig
 
+        self._ensure_urdf_extensions()
+
         req = cmd.import_urdf
+        urdf_path = os.path.abspath(req.urdf_path)
+        if not os.path.exists(urdf_path):
+            raise FileNotFoundError(urdf_path)
+
+        out_dir = os.path.join(tempfile.gettempdir(), "isaacsim_bridge_urdf")
+        os.makedirs(out_dir, exist_ok=True)
+
         config = URDFImporterConfig()
-        config.urdf_path = req.urdf_path
+        config.urdf_path = urdf_path
+        config.usd_path = out_dir
         config.fix_base = req.fixed_base
-        importer = URDFImporter(config)
-        result = importer.import_urdf()
-        reply.prim.prim_path = req.prim_path or str(result)
+        output_usd = URDFImporter(config).import_urdf()
+        if not output_usd:
+            raise RuntimeError(f"URDF import produced no output for {urdf_path}")
+
+        # Reference the converted USD onto the live stage so it is usable immediately.
+        name = os.path.splitext(os.path.basename(urdf_path))[0]
+        prim_path = req.prim_path or f"/World/{name}"
+        self._stage_utils.add_reference_to_stage(usd_path=output_usd, path=prim_path)
+        reply.prim.prim_path = prim_path
+
+    def _ensure_urdf_extensions(self) -> None:
+        if getattr(self, "_urdf_ext_ready", False):
+            return
+        import omni.kit.app
+
+        manager = omni.kit.app.get_app().get_extension_manager()
+        for ext in ("omni.scene.optimizer.core", "isaacsim.robot.schema"):
+            manager.set_extension_enabled_immediate(ext, True)
+        self._urdf_ext_ready = True
 
     # ------------------------------------------------------------------ robots
     def _h_get_assets_root(self, cmd, reply) -> None:
