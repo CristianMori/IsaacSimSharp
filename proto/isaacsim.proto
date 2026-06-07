@@ -71,6 +71,8 @@ message Command {
     SetVelocityRequest set_velocity = 57;
     GetVelocityRequest get_velocity = 58;
     RaycastRequest raycast = 59;
+    MovePrimRequest move_prim = 60;
+    DuplicatePrimRequest duplicate_prim = 61;
   }
 }
 
@@ -515,6 +517,11 @@ message RaycastReply {
   Vec3 normal = 4;
   double distance = 5;
 }
+
+// Move (reparent/rename) or duplicate a prim to a new path. Both return PrimReply
+// with the resulting path.
+message MovePrimRequest { string prim_path = 1; string new_path = 2; }
+message DuplicatePrimRequest { string prim_path = 1; string new_path = 2; }
 
 message GetAttributeRequest {
   string prim_path = 1;

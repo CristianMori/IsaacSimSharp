@@ -142,6 +142,20 @@ public sealed class UsdApi
     public async Task BindMaterialAsync(string primPath, string materialPath, CancellationToken cancellationToken = default)
         => (await _commands.SendAsync(new Command { BindMaterial = new BindMaterialRequest { PrimPath = primPath, MaterialPath = materialPath } }, cancellationToken).ConfigureAwait(false)).EnsureOk();
 
+    /// <summary>Moves (reparents/renames) a prim to a new path; returns the new path.</summary>
+    public async Task<string> MovePrimAsync(string primPath, string newPath, CancellationToken cancellationToken = default)
+    {
+        var reply = (await _commands.SendAsync(new Command { MovePrim = new MovePrimRequest { PrimPath = primPath, NewPath = newPath } }, cancellationToken).ConfigureAwait(false)).EnsureOk();
+        return reply.Prim.PrimPath;
+    }
+
+    /// <summary>Duplicates a prim to a new path; returns the new path.</summary>
+    public async Task<string> DuplicatePrimAsync(string primPath, string newPath, CancellationToken cancellationToken = default)
+    {
+        var reply = (await _commands.SendAsync(new Command { DuplicatePrim = new DuplicatePrimRequest { PrimPath = primPath, NewPath = newPath } }, cancellationToken).ConfigureAwait(false)).EnsureOk();
+        return reply.Prim.PrimPath;
+    }
+
     // ---- typed convenience setters ----
     public Task SetAttributeAsync(string primPath, string name, bool value, CancellationToken cancellationToken = default)
         => SetAttributeAsync(primPath, name, new UsdValue { BoolValue = value }, cancellationToken);

@@ -277,6 +277,21 @@ def handle(cmd: "pb.Command", state: dict) -> "pb.Reply":
         reply.raycast.position.x = req.origin.x + req.direction.x * dist
         reply.raycast.position.y = req.origin.y + req.direction.y * dist
         reply.raycast.position.z = req.origin.z + req.direction.z * dist
+    elif which == "move_prim":
+        req = cmd.move_prim
+        if req.prim_path in state["stage"]:
+            state["stage"][req.new_path] = state["stage"].pop(req.prim_path)
+        reply.prim.prim_path = req.new_path
+    elif which == "duplicate_prim":
+        req = cmd.duplicate_prim
+        src = state["stage"].get(req.prim_path)
+        if src is not None:
+            state["stage"][req.new_path] = {
+                "type": src.get("type", ""),
+                "attrs": dict(src.get("attrs", {})),
+                "xform": dict(src.get("xform", _identity_xform())),
+            }
+        reply.prim.prim_path = req.new_path
     elif which in _ACK_ONLY:
         pass
     else:

@@ -921,6 +921,28 @@ class Handlers:
             float(nrm[0]), float(nrm[1]), float(nrm[2]))
         reply.raycast.distance = float(hit.get("distance", 0.0))
 
+    def _h_move_prim(self, cmd, reply) -> None:
+        import omni.kit.commands
+
+        req = cmd.move_prim
+        if not self._stage().GetPrimAtPath(req.prim_path).IsValid():
+            raise KeyError(f"prim not found '{req.prim_path}'")
+        ok = omni.kit.commands.execute("MovePrim", path_from=req.prim_path, path_to=req.new_path)
+        if ok is False:
+            raise RuntimeError(f"failed to move '{req.prim_path}' to '{req.new_path}'")
+        reply.prim.prim_path = req.new_path
+
+    def _h_duplicate_prim(self, cmd, reply) -> None:
+        import omni.kit.commands
+
+        req = cmd.duplicate_prim
+        if not self._stage().GetPrimAtPath(req.prim_path).IsValid():
+            raise KeyError(f"prim not found '{req.prim_path}'")
+        ok = omni.kit.commands.execute("CopyPrim", path_from=req.prim_path, path_to=req.new_path)
+        if ok is False:
+            raise RuntimeError(f"failed to duplicate '{req.prim_path}' to '{req.new_path}'")
+        reply.prim.prim_path = req.new_path
+
     def _xform(self, path: str):
         from isaacsim.core.experimental.prims import XformPrim
 

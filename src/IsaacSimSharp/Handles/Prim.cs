@@ -56,6 +56,26 @@ public class Prim
     public Task RemoveAsync(CancellationToken cancellationToken = default)
         => Client.Scene.RemovePrimAsync(Path, cancellationToken);
 
+    /// <summary>Moves this prim under a new parent (keeps its name); returns a handle to the new path.</summary>
+    public async Task<Prim> ReparentAsync(string newParentPath, CancellationToken cancellationToken = default)
+    {
+        var name = Path[(Path.LastIndexOf('/') + 1)..];
+        var dest = $"{newParentPath.TrimEnd('/')}/{name}";
+        return new Prim(Client, await Client.Usd.MovePrimAsync(Path, dest, cancellationToken).ConfigureAwait(false));
+    }
+
+    /// <summary>Renames this prim within its parent; returns a handle to the new path.</summary>
+    public async Task<Prim> RenameAsync(string newName, CancellationToken cancellationToken = default)
+    {
+        var parent = Path[..Path.LastIndexOf('/')];
+        var dest = $"{(parent.Length == 0 ? "" : parent)}/{newName}";
+        return new Prim(Client, await Client.Usd.MovePrimAsync(Path, dest, cancellationToken).ConfigureAwait(false));
+    }
+
+    /// <summary>Duplicates this prim to a new path; returns a handle to the copy.</summary>
+    public async Task<Prim> DuplicateAsync(string newPath, CancellationToken cancellationToken = default)
+        => new(Client, await Client.Usd.DuplicatePrimAsync(Path, newPath, cancellationToken).ConfigureAwait(false));
+
     public Task SetVisibleAsync(bool visible, CancellationToken cancellationToken = default)
         => Client.Usd.SetVisibilityAsync(Path, visible, cancellationToken);
 

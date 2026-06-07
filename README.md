@@ -136,7 +136,8 @@ dotnet test                                   # in another
   `DefinePrimAsync` (instantiate any USD type), `GetAttributeAsync` / `SetAttributeAsync`
   (read/write any attribute), `GetTransformAsync` / `SetTransformAsync` / `GetBoundsAsync`,
   `SetVisibilityAsync` / `SetActiveAsync`, `ApplySchemaAsync` (rigid body / collider / any API),
-  `SetMassAsync`, `CreateMaterialAsync` / `BindMaterialAsync`.
+  `SetMassAsync`, `CreateMaterialAsync` / `BindMaterialAsync`,
+  `MovePrimAsync` (reparent/rename) / `DuplicatePrimAsync`.
 - **Physics** (`client.Physics`): runtime rigid-body state — `SetRigidPoseAsync` (teleport),
   `SetVelocityAsync` / `GetVelocityAsync`, and `RaycastAsync` (scene query).
 - **Handles** (object paradigm): `client.CreateCubeAsync` / `client.GetPrim` / `client.DefinePrimAsync`

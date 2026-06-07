@@ -61,6 +61,27 @@ public sealed class HandleTests
     }
 
     [Fact]
+    public async Task Rename_reparent_duplicate()
+    {
+        using var client = _fixture.CreateClient();
+        await client.NewStageAsync();
+        await client.DefinePrimAsync("/World/Group", "Xform");
+        var cube = await client.CreateCubeAsync("/World/Box");
+
+        var renamed = await cube.RenameAsync("Box2");
+        Assert.Equal("/World/Box2", renamed.Path);
+
+        var moved = await renamed.ReparentAsync("/World/Group");
+        Assert.Equal("/World/Group/Box2", moved.Path);
+
+        var copy = await moved.DuplicateAsync("/World/Group/Box3");
+        Assert.Equal("/World/Group/Box3", copy.Path);
+
+        var cubes = await client.Usd.FindPrimsAsync(typeName: "Cube");
+        Assert.Equal(2, cubes.Count); // moved original + duplicate
+    }
+
+    [Fact]
     public async Task GetBounds_reflects_position_and_size()
     {
         using var client = _fixture.CreateClient();
