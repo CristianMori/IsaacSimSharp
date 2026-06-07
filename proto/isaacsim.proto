@@ -52,6 +52,11 @@ message Command {
     CreateContactRequest create_contact = 38;
     CreateLidarRequest create_lidar = 39;
     CreateRadarRequest create_radar = 40;
+    ListPrimsRequest list_prims = 41;
+    DefinePrimRequest define_prim = 42;
+    GetPrimRequest get_prim = 43;
+    GetAttributeRequest get_attribute = 44;
+    SetAttributeRequest set_attribute = 45;
   }
 }
 
@@ -72,6 +77,9 @@ message Reply {
     DofStateReply dof_state = 31;
     SensorReply sensor = 33;       // returned by create_camera / create_imu
     SensorFrame sensor_frame = 37; // returned by get_sensor_frame (on-demand pull)
+    PrimListReply prim_list = 41;  // returned by list_prims
+    PrimDescReply prim_desc = 43;  // returned by get_prim
+    AttributeReply attribute = 44; // returned by get_attribute
   }
 }
 
@@ -345,4 +353,72 @@ message SensorFrame {
     ContactFrame contact = 12;
     PointCloudFrame point_cloud = 13;
   }
+}
+
+// ------------------------- Generic USD access ------------------------
+// Reflective stage editing: enumerate prims, define any prim type, and
+// read/write arbitrary attributes.
+
+message DoubleArray { repeated double values = 1; }
+message Int64Array { repeated int64 values = 1; }
+message StringArray { repeated string values = 1; }
+
+// A typed USD attribute value. `vec4_value` carries vec4/quat as (x,y,z,w).
+// `text_value` is a read-only textual fallback for types not modelled here.
+message UsdValue {
+  oneof kind {
+    bool bool_value = 1;
+    int64 int_value = 2;
+    double double_value = 3;
+    string string_value = 4;
+    string token_value = 5;
+    Vec3 vec3_value = 6;
+    Quat vec4_value = 7;
+    DoubleArray double_array = 8;
+    Int64Array int_array = 9;
+    StringArray string_array = 10;
+    string text_value = 11;
+  }
+}
+
+message PrimInfo {
+  string path = 1;
+  string type_name = 2;
+}
+
+message ListPrimsRequest {
+  string root = 1;      // defaults to "/" (whole stage)
+  bool recursive = 2;   // true: whole subtree; false: direct children only
+}
+message PrimListReply {
+  repeated PrimInfo prims = 1;
+}
+
+message DefinePrimRequest {
+  string prim_path = 1;
+  string type_name = 2; // USD type, e.g. "Xform", "Sphere", "Mesh"; empty = typeless
+}
+
+message GetPrimRequest { string prim_path = 1; }
+message PrimDescReply {
+  bool exists = 1;
+  string type_name = 2;
+  repeated string attributes = 3; // attribute names
+  repeated string children = 4;   // child prim paths
+}
+
+message GetAttributeRequest {
+  string prim_path = 1;
+  string name = 2;
+}
+message AttributeReply {
+  bool exists = 1;
+  string type_name = 2; // USD value type name (e.g. "double3")
+  UsdValue value = 3;
+}
+
+message SetAttributeRequest {
+  string prim_path = 1;
+  string name = 2;
+  UsdValue value = 3;
 }

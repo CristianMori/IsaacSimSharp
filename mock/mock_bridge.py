@@ -23,7 +23,7 @@ PROTOCOL_VERSION = "0.1.0"
 BRIDGE_VERSION = "mock-0.1.0"
 
 _ACK_ONLY = {
-    "new_stage", "open_stage", "play", "pause", "stop", "reset",
+    "open_stage", "play", "pause", "stop", "reset",
     "set_physics_dt", "shutdown", "set_prim_pose", "remove_prim",
     "subscribe", "unsubscribe",
 }
@@ -135,6 +135,46 @@ def handle(cmd: "pb.Command", state: dict) -> "pb.Reply":
             reply.error = f"unknown sensor '{h}'"
     elif which == "unsubscribe":
         state["subscriptions"].discard(cmd.unsubscribe.handle)
+    elif which == "new_stage":
+        state["stage"] = {}
+    elif which == "define_prim":
+        p = cmd.define_prim.prim_path
+        state["stage"][p] = {"type": cmd.define_prim.type_name, "attrs": {}}
+        reply.prim.prim_path = p
+    elif which == "list_prims":
+        root = cmd.list_prims.root or "/"
+        for path, info in state["stage"].items():
+            if root != "/" and not (path == root or path.startswith(root + "/")):
+                continue
+            if path == root:
+                continue
+            if not cmd.list_prims.recursive and (path.rsplit("/", 1)[0] or "/") != root:
+                continue
+            pi = reply.prim_list.prims.add()
+            pi.path = path
+            pi.type_name = info["type"]
+    elif which == "get_prim":
+        info = state["stage"].get(cmd.get_prim.prim_path)
+        if info is None:
+            reply.prim_desc.exists = False
+        else:
+            reply.prim_desc.exists = True
+            reply.prim_desc.type_name = info["type"]
+            reply.prim_desc.attributes.extend(info["attrs"].keys())
+            reply.prim_desc.children.extend(
+                x for x in state["stage"] if x.rsplit("/", 1)[0] == cmd.get_prim.prim_path)
+    elif which == "get_attribute":
+        info = state["stage"].get(cmd.get_attribute.prim_path)
+        if info and cmd.get_attribute.name in info["attrs"]:
+            reply.attribute.exists = True
+            reply.attribute.value.CopyFrom(info["attrs"][cmd.get_attribute.name])
+        else:
+            reply.attribute.exists = False
+    elif which == "set_attribute":
+        info = state["stage"].setdefault(cmd.set_attribute.prim_path, {"type": "", "attrs": {}})
+        stored = pb.UsdValue()
+        stored.CopyFrom(cmd.set_attribute.value)
+        info["attrs"][cmd.set_attribute.name] = stored
     elif which in _ACK_ONLY:
         pass
     else:
@@ -156,7 +196,7 @@ def main() -> None:
     pub.bind(args.sensor_endpoint)
     print(f"[mock-bridge] listening on {args.command_endpoint} (sensors on {args.sensor_endpoint})", flush=True)
 
-    state = {"frame": 0, "dofs": 9, "targets": None, "sensors": {}, "subscriptions": set()}
+    state = {"frame": 0, "dofs": 9, "targets": None, "sensors": {}, "subscriptions": set(), "stage": {}}
 
     stop = threading.Event()
 

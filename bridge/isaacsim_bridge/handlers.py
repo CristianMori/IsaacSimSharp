@@ -54,6 +54,78 @@ def _scalar_field(data, names):
         return value
 
 
+def _usd_to_value(val):
+    """Convert a USD/Gf/Vt value into a protobuf UsdValue (best-effort)."""
+    from pxr import Gf, Sdf, Vt
+
+    uv = pb.UsdValue()
+    if isinstance(val, bool):  # bool before int (bool is a subclass of int)
+        uv.bool_value = val
+    elif isinstance(val, int):
+        uv.int_value = val
+    elif isinstance(val, float):
+        uv.double_value = val
+    elif isinstance(val, str):
+        uv.string_value = val
+    elif isinstance(val, Sdf.AssetPath):
+        uv.string_value = val.path
+    elif isinstance(val, (Gf.Vec3d, Gf.Vec3f, Gf.Vec3h, Gf.Vec3i)):
+        uv.vec3_value.x, uv.vec3_value.y, uv.vec3_value.z = float(val[0]), float(val[1]), float(val[2])
+    elif isinstance(val, (Gf.Vec4d, Gf.Vec4f, Gf.Vec4h, Gf.Vec4i)):
+        uv.vec4_value.x, uv.vec4_value.y, uv.vec4_value.z, uv.vec4_value.w = (
+            float(val[0]), float(val[1]), float(val[2]), float(val[3]))
+    elif isinstance(val, (Gf.Quatd, Gf.Quatf, Gf.Quath)):
+        im = val.GetImaginary()
+        uv.vec4_value.x, uv.vec4_value.y, uv.vec4_value.z = float(im[0]), float(im[1]), float(im[2])
+        uv.vec4_value.w = float(val.GetReal())
+    elif isinstance(val, (Vt.Array, list, tuple)):
+        seq = list(val)
+        if all(isinstance(x, str) for x in seq):
+            uv.string_array.values.extend(seq)
+        elif all(isinstance(x, bool) for x in seq):
+            uv.int_array.values.extend(int(x) for x in seq)
+        elif all(isinstance(x, int) for x in seq):
+            uv.int_array.values.extend(seq)
+        else:
+            try:
+                uv.double_array.values.extend(float(x) for x in seq)
+            except (TypeError, ValueError):
+                uv.text_value = str(val)
+    else:
+        uv.text_value = str(val)
+    return uv
+
+
+def _value_to_usd(uv):
+    """Convert a protobuf UsdValue into (python value, Sdf.ValueTypeName) for set/create."""
+    from pxr import Gf, Sdf, Vt
+
+    kind = uv.WhichOneof("kind")
+    if kind == "bool_value":
+        return bool(uv.bool_value), Sdf.ValueTypeNames.Bool
+    if kind == "int_value":
+        return int(uv.int_value), Sdf.ValueTypeNames.Int64
+    if kind == "double_value":
+        return float(uv.double_value), Sdf.ValueTypeNames.Double
+    if kind == "string_value":
+        return str(uv.string_value), Sdf.ValueTypeNames.String
+    if kind == "token_value":
+        return str(uv.token_value), Sdf.ValueTypeNames.Token
+    if kind == "vec3_value":
+        v = uv.vec3_value
+        return Gf.Vec3d(v.x, v.y, v.z), Sdf.ValueTypeNames.Double3
+    if kind == "vec4_value":
+        v = uv.vec4_value
+        return Gf.Vec4d(v.x, v.y, v.z, v.w), Sdf.ValueTypeNames.Double4
+    if kind == "double_array":
+        return Vt.DoubleArray(list(uv.double_array.values)), Sdf.ValueTypeNames.DoubleArray
+    if kind == "int_array":
+        return Vt.Int64Array([int(x) for x in uv.int_array.values]), Sdf.ValueTypeNames.Int64Array
+    if kind == "string_array":
+        return Vt.StringArray(list(uv.string_array.values)), Sdf.ValueTypeNames.StringArray
+    raise ValueError(f"unsupported or empty UsdValue (kind={kind})")
+
+
 class Handlers:
     def __init__(self, sim_app) -> None:
         self.sim_app = sim_app
@@ -581,6 +653,79 @@ class Handlers:
         if orient is not None and len(orient) == 4:
             frame.imu.orientation.w, frame.imu.orientation.x, frame.imu.orientation.y, frame.imu.orientation.z = orient
         return frame
+
+    # ------------------------------------------------------------------ generic USD
+    def _h_list_prims(self, cmd, reply) -> None:
+        from pxr import Usd
+
+        stage = self._stage()
+        root = cmd.list_prims.root or "/"
+        if root == "/":
+            root_prim = stage.GetPseudoRoot()
+        else:
+            root_prim = stage.GetPrimAtPath(root)
+            if not root_prim.IsValid():
+                raise KeyError(f"prim not found '{root}'")
+
+        if cmd.list_prims.recursive:
+            for prim in Usd.PrimRange(root_prim):
+                if prim == root_prim:
+                    continue
+                info = reply.prim_list.prims.add()
+                info.path = str(prim.GetPath())
+                info.type_name = prim.GetTypeName()
+        else:
+            for child in root_prim.GetChildren():
+                info = reply.prim_list.prims.add()
+                info.path = str(child.GetPath())
+                info.type_name = child.GetTypeName()
+
+    def _h_define_prim(self, cmd, reply) -> None:
+        stage = self._stage()
+        req = cmd.define_prim
+        prim = stage.DefinePrim(req.prim_path, req.type_name) if req.type_name else stage.DefinePrim(req.prim_path)
+        if not prim.IsValid():
+            raise RuntimeError(f"failed to define prim '{req.prim_path}'")
+        reply.prim.prim_path = str(prim.GetPath())
+
+    def _h_get_prim(self, cmd, reply) -> None:
+        prim = self._stage().GetPrimAtPath(cmd.get_prim.prim_path)
+        if not prim.IsValid():
+            reply.prim_desc.exists = False
+            return
+        reply.prim_desc.exists = True
+        reply.prim_desc.type_name = prim.GetTypeName()
+        reply.prim_desc.attributes.extend(a.GetName() for a in prim.GetAttributes())
+        reply.prim_desc.children.extend(str(c.GetPath()) for c in prim.GetChildren())
+
+    def _h_get_attribute(self, cmd, reply) -> None:
+        req = cmd.get_attribute
+        prim = self._stage().GetPrimAtPath(req.prim_path)
+        attr = prim.GetAttribute(req.name) if prim.IsValid() else None
+        if not attr or not attr.IsValid() or not attr.HasValue():
+            reply.attribute.exists = False
+            return
+        reply.attribute.exists = True
+        reply.attribute.type_name = str(attr.GetTypeName())
+        reply.attribute.value.CopyFrom(_usd_to_value(attr.Get()))
+
+    def _h_set_attribute(self, cmd, reply) -> None:
+        req = cmd.set_attribute
+        prim = self._stage().GetPrimAtPath(req.prim_path)
+        if not prim.IsValid():
+            raise KeyError(f"prim not found '{req.prim_path}'")
+        value, sdf_type = _value_to_usd(req.value)
+        attr = prim.GetAttribute(req.name)
+        if not attr or not attr.IsValid():
+            attr = prim.CreateAttribute(req.name, sdf_type)
+        if not attr.Set(value):
+            raise RuntimeError(f"failed to set attribute '{req.name}' on '{req.prim_path}'")
+
+    def _stage(self):
+        stage = self._omni_usd.get_context().get_stage()
+        if stage is None:
+            raise RuntimeError("no active stage")
+        return stage
 
     # ------------------------------------------------------------------ helpers
     @staticmethod

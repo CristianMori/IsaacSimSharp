@@ -3,6 +3,7 @@ using IsaacSimSharp.Robots;
 using IsaacSimSharp.Scene;
 using IsaacSimSharp.Sensors;
 using IsaacSimSharp.Transport;
+using IsaacSimSharp.Usd;
 
 namespace IsaacSimSharp;
 
@@ -23,6 +24,7 @@ public sealed class IsaacSimClient : IDisposable
         Scene = new SceneApi(_commands);
         Robots = new RobotsApi(_commands);
         Sensors = new SensorsApi(_commands, _sensorStream);
+        Usd = new UsdApi(_commands);
     }
 
     /// <summary>Scene-configuration operations (ground plane, lights, primitives, references).</summary>
@@ -33,6 +35,9 @@ public sealed class IsaacSimClient : IDisposable
 
     /// <summary>Sensor operations (create cameras/IMUs, pull frames, subscribe to streams).</summary>
     public SensorsApi Sensors { get; }
+
+    /// <summary>Generic USD access (enumerate prims, define any type, read/write attributes).</summary>
+    public UsdApi Usd { get; }
 
     /// <summary>Connects to a bridge at the given command endpoint (defaults to localhost).</summary>
     public static IsaacSimClient Connect(string? commandEndpoint = null)

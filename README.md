@@ -131,6 +131,10 @@ dotnet test                                   # in another
 - **Sensors** (`client.Sensors`): `CreateCameraAsync`, `CreateImuAsync`, `CreateContactAsync`,
   `CreateLidarAsync`, `CreateRadarAsync` (needs `--motion-bvh`), `GetFrameAsync` (pull),
   `StreamAsync` (push, `IAsyncEnumerable`).
+- **USD** (`client.Usd`): generic, reflective stage access — `ListPrimsAsync` (enumerate),
+  `GetPrimAsync` (inspect type/attrs/children), `DefinePrimAsync` (instantiate any USD type),
+  `GetAttributeAsync` / `SetAttributeAsync` (read/write any attribute; typed overloads for
+  bool/long/double/string/Vector3).
 
 ## Status
 
