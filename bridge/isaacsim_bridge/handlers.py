@@ -429,6 +429,29 @@ class Handlers:
         self._sensors[path] = {"type": pb.SENSOR_LIDAR, "sensor": sensor}
         reply.sensor.handle = path
 
+    def _h_create_radar(self, cmd, reply) -> None:
+        import carb
+        import numpy as np
+        from isaacsim.core.experimental.utils.app import enable_extension
+        from isaacsim.sensors.experimental.rtx import Radar, RadarSensor
+
+        # RTX radar needs Motion BVH (Doppler); without it the native plugin crashes the
+        # process, so fail fast with a clear message instead.
+        if not carb.settings.get_settings().get("/renderer/raytracingMotion/enabled"):
+            raise RuntimeError("RTX radar requires Motion BVH; launch the bridge with --motion-bvh")
+
+        enable_extension("isaacsim.sensors.rtx.nodes")
+        req = cmd.create_radar
+        path = req.prim_path or "/World/radar"
+        radar = Radar.create(
+            path,
+            config=req.config or "IWRL6432AOP",
+            translations=np.array([req.position.x, req.position.y, req.position.z]),
+        )
+        sensor = RadarSensor(radar, annotators=["generic-model-output"])
+        self._sensors[path] = {"type": pb.SENSOR_RADAR, "sensor": sensor}
+        reply.sensor.handle = path
+
     def _h_subscribe(self, cmd, reply) -> None:
         handle = cmd.subscribe.handle
         if handle not in self._sensors:
@@ -457,6 +480,8 @@ class Handlers:
             return self._frame_contact(handle, info)
         if info["type"] == pb.SENSOR_LIDAR:
             return self._frame_gmo_point_cloud(handle, info, pb.SENSOR_LIDAR)
+        if info["type"] == pb.SENSOR_RADAR:
+            return self._frame_gmo_point_cloud(handle, info, pb.SENSOR_RADAR)
         return None
 
     def _frame_contact(self, handle, info):

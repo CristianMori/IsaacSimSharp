@@ -87,6 +87,22 @@ public sealed class SensorsApi
         return reply.Sensor.Handle;
     }
 
+    /// <summary>
+    /// Creates an RTX radar from a named config (e.g. "IWRL6432AOP"); returns its handle.
+    /// Requires the bridge to be launched with <c>--motion-bvh</c>, otherwise the call faults
+    /// with a clear error.
+    /// </summary>
+    public async Task<string> CreateRadarAsync(
+        string primPath,
+        string config = "IWRL6432AOP",
+        Vector3 position = default,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new CreateRadarRequest { PrimPath = primPath, Config = config, Position = ToVec3(position) };
+        var reply = (await _commands.SendAsync(new Command { CreateRadar = request }, cancellationToken).ConfigureAwait(false)).EnsureOk();
+        return reply.Sensor.Handle;
+    }
+
     /// <summary>Pulls a single, current frame for the sensor on demand (request/reply).</summary>
     public async Task<SensorFrame> GetFrameAsync(string handle, CancellationToken cancellationToken = default)
     {

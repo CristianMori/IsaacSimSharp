@@ -89,6 +89,7 @@ cache, then it prints `listening on ...`):
 ```powershell
 bridge\run_bridge.bat --command-endpoint tcp://127.0.0.1:5599 --sensor-endpoint tcp://127.0.0.1:5600
 # add --gui to show the Isaac Sim window
+# add --motion-bvh to enable RTX radar (slower; off by default)
 ```
 
 **Then run a sample:**
@@ -116,7 +117,8 @@ dotnet test                                   # in another
 - **Robots** (`client.Robots`): `RegisterAsync` → `RobotArticulation` with `GetStateAsync`,
   `SetPositionTargetsAsync`, `SetVelocityTargetsAsync`, `SetEffortsAsync`.
 - **Sensors** (`client.Sensors`): `CreateCameraAsync`, `CreateImuAsync`, `CreateContactAsync`,
-  `CreateLidarAsync`, `GetFrameAsync` (pull), `StreamAsync` (push, `IAsyncEnumerable`).
+  `CreateLidarAsync`, `CreateRadarAsync` (needs `--motion-bvh`), `GetFrameAsync` (pull),
+  `StreamAsync` (push, `IAsyncEnumerable`).
 
 ## Status
 
@@ -131,8 +133,10 @@ dotnet test                                   # in another
 All four sensor types (camera, contact, lidar, IMU) and `ImportUrdfAsync` are verified live
 (camera RGB8+depth; contact `in_contact`/count/force-magnitude; lidar ~200k-point cloud with
 per-point intensity, decoded from the GMO buffer; URDF import of `assets/urdf/04-materials.urdf`
-→ `/World/robot`). IMU uses best-effort field extraction. RTX **radar** is intentionally not
-exposed — the experimental radar plugin crashes Isaac Sim on creation in this build.
+→ `/World/robot`). IMU uses best-effort field extraction. RTX **radar** works only when the
+bridge is launched with `--motion-bvh` (Doppler needs Motion BVH; without it `CreateRadarAsync`
+returns a clear error instead of crashing the sim). Motion BVH is off by default because it
+slows all sensors and uses more VRAM.
 
 The SDK packs as a single self-contained NuGet package (`dotnet pack src/IsaacSimSharp`),
 depending only on `NetMQ` and `Google.Protobuf`.

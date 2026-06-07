@@ -19,9 +19,14 @@ def main() -> None:
     parser.add_argument("--command-endpoint", default="tcp://127.0.0.1:5599")
     parser.add_argument("--sensor-endpoint", default="tcp://127.0.0.1:5600")
     parser.add_argument("--gui", action="store_true", help="show the Isaac Sim UI (default: headless)")
+    parser.add_argument(
+        "--motion-bvh",
+        action="store_true",
+        help="enable Motion BVH; required for RTX radar (Doppler), but slower and uses more VRAM",
+    )
     args = parser.parse_args()
 
-    sim_app = SimulationApp({"headless": not args.gui})
+    sim_app = SimulationApp({"headless": not args.gui, "enable_motion_bvh": args.motion_bvh})
 
     # Safe to import the bridge server now that the Kit app exists.
     from isaacsim_bridge.server import BridgeServer

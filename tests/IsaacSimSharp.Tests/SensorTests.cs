@@ -80,4 +80,16 @@ public sealed class SensorTests
         Assert.Equal(3 * 12, frame.PointCloud.Points.Length);
         Assert.Equal(3 * 4, frame.PointCloud.Intensities.Length);
     }
+
+    [Fact]
+    public async Task Radar_pull_returns_point_cloud()
+    {
+        using var client = _fixture.CreateClient();
+        var radar = await client.Sensors.CreateRadarAsync("/World/radar");
+        var frame = await client.Sensors.GetFrameAsync(radar);
+
+        Assert.Equal(SensorType.SensorRadar, frame.Type);
+        Assert.Equal(3u, frame.PointCloud.Count);
+        Assert.Equal(3 * 12, frame.PointCloud.Points.Length);
+    }
 }

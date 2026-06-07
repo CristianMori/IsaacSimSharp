@@ -55,8 +55,8 @@ def make_frame(handle: str, state: dict) -> "pb.SensorFrame":
         frame.contact.force.z = 5.0
         frame.contact.force_magnitude = 5.0
         frame.contact.count = 1
-    elif kind == "lidar":
-        frame.type = pb.SENSOR_LIDAR
+    elif kind in ("lidar", "radar"):
+        frame.type = pb.SENSOR_LIDAR if kind == "lidar" else pb.SENSOR_RADAR
         points = [(1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)]
         frame.point_cloud.count = len(points)
         frame.point_cloud.points = b"".join(struct.pack("<fff", *p) for p in points)
@@ -114,6 +114,10 @@ def handle(cmd: "pb.Command", state: dict) -> "pb.Reply":
     elif which == "create_lidar":
         h = cmd.create_lidar.prim_path or "/World/lidar"
         state["sensors"][h] = ("lidar", 0, 0)
+        reply.sensor.handle = h
+    elif which == "create_radar":
+        h = cmd.create_radar.prim_path or "/World/radar"
+        state["sensors"][h] = ("radar", 0, 0)
         reply.sensor.handle = h
     elif which == "get_sensor_frame":
         h = cmd.get_sensor_frame.handle

@@ -51,7 +51,7 @@ message Command {
     GetSensorFrameRequest get_sensor_frame = 37;
     CreateContactRequest create_contact = 38;
     CreateLidarRequest create_lidar = 39;
-    // 40 reserved: radar (omitted — the experimental RTX radar plugin crashes Isaac Sim on create)
+    CreateRadarRequest create_radar = 40;
   }
 }
 
@@ -260,6 +260,7 @@ enum SensorType {
   SENSOR_IMU = 2;
   SENSOR_CONTACT = 3;
   SENSOR_LIDAR = 4;
+  SENSOR_RADAR = 5;
 }
 
 message SensorReply {
@@ -291,6 +292,13 @@ message CreateContactRequest {
 message CreateLidarRequest {
   string prim_path = 1;
   string config = 2; // e.g. "Example_Rotary"; defaults to Example_Rotary
+  Vec3 position = 3;
+}
+
+// Requires the bridge to be launched with --motion-bvh.
+message CreateRadarRequest {
+  string prim_path = 1;
+  string config = 2; // e.g. "IWRL6432AOP"; defaults to IWRL6432AOP
   Vec3 position = 3;
 }
 
