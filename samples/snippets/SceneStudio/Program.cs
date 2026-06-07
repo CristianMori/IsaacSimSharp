@@ -6,10 +6,12 @@ using IsaacSimSharp.Hosting;
 using IsaacSimSharp.Imaging;
 using IsaacSimSharp.Scene;
 
-var bridgeDir = args.Length > 0 ? args[0] : Environment.GetEnvironmentVariable("ISAACSIMSHARP_BRIDGE");
+var gui = args.Contains("--gui"); // pass --gui to watch it build in the Isaac Sim window
+var positional = args.Where(a => !a.StartsWith("--")).ToArray();
+var bridgeDir = positional.Length > 0 ? positional[0] : Environment.GetEnvironmentVariable("ISAACSIMSHARP_BRIDGE");
 var outDir = Directory.CreateDirectory(Path.GetFullPath("studio_out")).FullName;
 
-await using var session = await IsaacSimBridge.LaunchAsync(new BridgeLaunchOptions { BridgeDirectory = bridgeDir });
+await using var session = await IsaacSimBridge.LaunchAsync(new BridgeLaunchOptions { BridgeDirectory = bridgeDir, Gui = gui });
 var client = session.Client;
 Console.WriteLine($"Isaac Sim {(await client.GetVersionAsync()).IsaacSimVersion} launched.");
 
@@ -44,3 +46,11 @@ Png.Save(Path.Combine(outDir, "studio.png"), (await client.Sensors.GetFrameAsync
 var usd = await client.ExportUsdAsync(Path.Combine(outDir, "studio.usda"));
 Console.WriteLine($"Saved snapshot + exported {usd}");
 Console.WriteLine($"Prims on stage: {(await client.Usd.ListPrimsAsync()).Count}");
+
+if (gui)
+{
+    Console.WriteLine("Holding so you can look around the window...");
+    // Step in small chunks so no single command exceeds the request timeout.
+    for (var i = 0; i < 20; i++)
+        await client.StepAsync(30);
+}

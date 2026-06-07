@@ -6,9 +6,11 @@ using System.Numerics;
 using IsaacSimSharp.Hosting;
 using IsaacSimSharp.Scene;
 
-var bridgeDir = args.Length > 0 ? args[0] : Environment.GetEnvironmentVariable("ISAACSIMSHARP_BRIDGE");
+var gui = args.Contains("--gui"); // pass --gui to watch the arm move in the Isaac Sim window
+var positional = args.Where(a => !a.StartsWith("--")).ToArray();
+var bridgeDir = positional.Length > 0 ? positional[0] : Environment.GetEnvironmentVariable("ISAACSIMSHARP_BRIDGE");
 
-await using var session = await IsaacSimBridge.LaunchAsync(new BridgeLaunchOptions { BridgeDirectory = bridgeDir });
+await using var session = await IsaacSimBridge.LaunchAsync(new BridgeLaunchOptions { BridgeDirectory = bridgeDir, Gui = gui });
 var client = session.Client;
 
 await client.NewStageAsync();
@@ -35,17 +37,21 @@ double[][] waypoints =
     [-1.0, -0.8, -0.4, -2.4, 0.4, 2.2, 0.2],
 ];
 
-for (var step = 0; step < waypoints.Length; step++)
+var passes = gui ? 3 : 1; // loop a few times when watching, so the arm motion is sustained
+for (var pass = 0; pass < passes; pass++)
 {
-    await robot.SetPositionTargetsAsync(waypoints[step], arm);          // drive
-    await prop.SetWorldPoseAsync(new Vector3(0.5f, 0, 1.0f + step), Quaternion.Identity); // teleport state in
-    await client.StepAsync(60);
+    for (var step = 0; step < waypoints.Length; step++)
+    {
+        await robot.SetPositionTargetsAsync(waypoints[step], arm);          // drive
+        await prop.SetWorldPoseAsync(new Vector3(0.5f, 0, 1.0f + step), Quaternion.Identity); // teleport state in
+        await client.StepAsync(60);
 
-    var frame = await client.Sensors.GetFrameAsync(cam);               // read perception
-    var hit = await client.Physics.RaycastAsync(new Vector3(0.5f, 0, 5), new Vector3(0, 0, -1), 100); // query world
-    var js = await robot.GetStateAsync();
-    Console.WriteLine($"wp{step}: cam {frame.Image.Width}x{frame.Image.Height} | " +
-                      $"ray->{(hit.Hit ? hit.PrimPath : "miss")}@{hit.Distance:F2} | j0={js.Positions[0]:F2}");
+        var frame = await client.Sensors.GetFrameAsync(cam);               // read perception
+        var hit = await client.Physics.RaycastAsync(new Vector3(0.5f, 0, 5), new Vector3(0, 0, -1), 100); // query world
+        var js = await robot.GetStateAsync();
+        Console.WriteLine($"pass{pass} wp{step}: cam {frame.Image.Width}x{frame.Image.Height} | " +
+                          $"ray->{(hit.Hit ? hit.PrimPath : "miss")}@{hit.Distance:F2} | j0={js.Positions[0]:F2}");
+    }
 }
 
 Console.WriteLine("Digital-twin feed loop complete.");

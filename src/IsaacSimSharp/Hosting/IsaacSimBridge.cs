@@ -111,13 +111,17 @@ public static class IsaacSimBridge
             + (options.MotionBvh ? " --motion-bvh" : string.Empty)
             + (options.Livestream ? " --livestream" : string.Empty);
 
+        // In GUI mode, don't hide the window or capture stdout — both prevent the Isaac Sim
+        // window from appearing on the interactive desktop. Headless mode redirects output so we
+        // can drain it (and avoid the verbose startup logging deadlocking the pipe).
+        var redirect = !options.Gui || options.OnOutput is not null;
         var psi = new ProcessStartInfo("cmd.exe", $"/c \"{inner}\"")
         {
             WorkingDirectory = bridgeDir,
             UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
+            RedirectStandardOutput = redirect,
+            RedirectStandardError = redirect,
+            CreateNoWindow = !options.Gui,
         };
         var existingPythonPath = Environment.GetEnvironmentVariable("PYTHONPATH");
         psi.Environment["PYTHONPATH"] =
@@ -126,13 +130,16 @@ public static class IsaacSimBridge
         var process = Process.Start(psi)
             ?? throw new InvalidOperationException("Failed to start the bridge process.");
 
-        // Always drain stdout/stderr, otherwise Isaac Sim's verbose startup logging fills the
-        // pipe buffer and the bridge hangs. Forward lines to OnOutput when provided.
-        var onOutput = options.OnOutput;
-        process.OutputDataReceived += (_, e) => { if (e.Data is not null) onOutput?.Invoke(e.Data); };
-        process.ErrorDataReceived += (_, e) => { if (e.Data is not null) onOutput?.Invoke(e.Data); };
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
+        // When redirecting, always drain stdout/stderr or Isaac Sim's verbose startup logging
+        // fills the pipe buffer and the bridge hangs. Forward lines to OnOutput when provided.
+        if (redirect)
+        {
+            var onOutput = options.OnOutput;
+            process.OutputDataReceived += (_, e) => { if (e.Data is not null) onOutput?.Invoke(e.Data); };
+            process.ErrorDataReceived += (_, e) => { if (e.Data is not null) onOutput?.Invoke(e.Data); };
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+        }
 
         var client = new IsaacSimClient(new IsaacSimClientOptions
         {
