@@ -1,6 +1,6 @@
 using System.Numerics;
 using IsaacSimSharp;
-using SensorStream;
+using IsaacSimSharp.Imaging;
 
 // Builds a scene, attaches an RTX camera, then pulls one frame on demand and
 // grabs several from the push stream, saving PNGs to out/.
@@ -35,7 +35,7 @@ await client.StepAsync(30); // let the renderer warm up
 var pulled = await client.Sensors.GetFrameAsync(cam);
 Console.WriteLine($"Pulled frame: {pulled.Image.Width}x{pulled.Image.Height} {pulled.Image.Encoding}, " +
                   $"{pulled.Image.Data.Length} bytes rgb, {pulled.Image.Depth.Length} bytes depth");
-SavePng(pulled.Image, Path.Combine(outDir, "camera_pull.png"));
+Png.Save(Path.Combine(outDir, "camera_pull.png"), pulled.Image);
 
 // --- Push mode: subscribe and save the 5th streamed frame ---
 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
@@ -44,13 +44,10 @@ await foreach (var frame in client.Sensors.StreamAsync(cam, cts.Token))
 {
     if (++count == 5)
     {
-        SavePng(frame.Image, Path.Combine(outDir, "camera_stream.png"));
+        Png.Save(Path.Combine(outDir, "camera_stream.png"), frame.Image);
         Console.WriteLine($"Saved streamed frame #{count} ({frame.Image.Width}x{frame.Image.Height})");
         break;
     }
 }
 
 Console.WriteLine($"Done. PNGs written to {outDir}");
-
-static void SavePng(IsaacSimSharp.Protocol.ImageFrame img, string path)
-    => Png.Write(path, (int)img.Width, (int)img.Height, (int)img.Channels, img.Data.ToByteArray());

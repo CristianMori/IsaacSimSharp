@@ -1,32 +1,43 @@
 using System.IO.Compression;
 using System.Text;
+using IsaacSimSharp.Protocol;
 
-namespace SensorStream;
+namespace IsaacSimSharp.Imaging;
 
-/// <summary>Minimal dependency-free PNG encoder (8-bit RGB/RGBA, no filtering).</summary>
-internal static class Png
+/// <summary>
+/// Minimal dependency-free PNG encoder for 8-bit RGB/RGBA buffers — handy for saving
+/// camera frames from <see cref="Sensors.SensorsApi"/> without pulling in an imaging library.
+/// </summary>
+public static class Png
 {
     private static readonly uint[] CrcTable = BuildCrcTable();
 
-    public static void Write(string path, int width, int height, int channels, byte[] pixels)
+    /// <summary>Saves a camera <see cref="ImageFrame"/> (RGB8/RGBA8) to a PNG file.</summary>
+    public static void Save(string path, ImageFrame frame)
+        => Save(path, (int)frame.Width, (int)frame.Height, (int)frame.Channels, frame.Data.Span);
+
+    /// <summary>Saves raw row-major 8-bit pixels (3 = RGB, 4 = RGBA) to a PNG file.</summary>
+    public static void Save(string path, int width, int height, int channels, ReadOnlySpan<byte> pixels)
     {
+        if (channels is not (3 or 4))
+            throw new ArgumentOutOfRangeException(nameof(channels), channels, "Only 3 (RGB) or 4 (RGBA) channels are supported.");
+
         using var fs = File.Create(path);
-        fs.Write([137, 80, 78, 71, 13, 10, 26, 10]); // signature
+        fs.Write([137, 80, 78, 71, 13, 10, 26, 10]); // PNG signature
 
         var ihdr = new byte[13];
         WriteBigEndian(ihdr, 0, (uint)width);
         WriteBigEndian(ihdr, 4, (uint)height);
-        ihdr[8] = 8;                                  // bit depth
-        ihdr[9] = (byte)(channels == 4 ? 6 : 2);      // color type: 6=RGBA, 2=RGB
+        ihdr[8] = 8;                             // bit depth
+        ihdr[9] = (byte)(channels == 4 ? 6 : 2); // color type: 6=RGBA, 2=RGB
         WriteChunk(fs, "IHDR", ihdr);
 
-        // Raw image data: each scanline prefixed with filter-type byte 0 (none).
         var stride = width * channels;
         using var raw = new MemoryStream((stride + 1) * height);
         for (var y = 0; y < height; y++)
         {
-            raw.WriteByte(0);
-            raw.Write(pixels, y * stride, stride);
+            raw.WriteByte(0); // filter type: none
+            raw.Write(pixels.Slice(y * stride, stride));
         }
 
         using var compressed = new MemoryStream();
