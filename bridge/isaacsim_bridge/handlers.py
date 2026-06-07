@@ -459,31 +459,24 @@ class Handlers:
             return self._frame_lidar(handle, info)
         return None
 
-    def _debug_once(self, tag, data) -> None:
-        seen = getattr(self, "_debugged", None)
-        if seen is None:
-            seen = self._debugged = set()
-        if tag in seen:
-            return
-        seen.add(tag)
-        keys = list(data.keys()) if isinstance(data, dict) else [a for a in dir(data) if not a.startswith("_")]
-        print(f"[isaacsim-bridge] {tag} get_data() type={type(data).__name__} keys/attrs={keys}", flush=True)
-
     def _frame_contact(self, handle, info):
-        import numpy as np
-
+        # Contact get_data() is a dict: time, physics_step, contacts, in_contact,
+        # force, number_of_contacts.
         data = info["sensor"].get_data()
-        self._debug_once("contact", data)
         frame = self._frame_header(handle, pb.SENSOR_CONTACT)
-        in_contact = _scalar_field(data, ("in_contact", "inContact", "is_in_contact"))
+        in_contact = _scalar_field(data, ("in_contact",))
         if in_contact is not None:
             frame.contact.in_contact = bool(in_contact)
-        force = _imu_field(data, ("force", "forces", "net_force", "value"))
-        if force is not None and len(force) >= 3:
-            frame.contact.force.x, frame.contact.force.y, frame.contact.force.z = force[:3]
-        count = _scalar_field(data, ("number_of_contacts", "num_contacts", "count"))
+        count = _scalar_field(data, ("number_of_contacts",))
         if count is not None:
             frame.contact.count = int(count)
+        force = _imu_field(data, ("force",))
+        if force is not None:
+            if len(force) >= 3:
+                frame.contact.force.x, frame.contact.force.y, frame.contact.force.z = force[:3]
+                frame.contact.force_magnitude = float((sum(c * c for c in force[:3])) ** 0.5)
+            elif len(force) == 1:
+                frame.contact.force_magnitude = float(force[0])
         return frame
 
     def _frame_lidar(self, handle, info):
@@ -510,6 +503,12 @@ class Handlers:
         frame = self._frame_header(handle, pb.SENSOR_LIDAR)
         frame.point_cloud.count = int(pts.shape[0])
         frame.point_cloud.points = np.ascontiguousarray(pts).tobytes()
+        try:
+            intensity = np.asarray(gmo.scalar, dtype=np.float32).reshape(-1)
+            if intensity.shape[0] == pts.shape[0]:
+                frame.point_cloud.intensities = np.ascontiguousarray(intensity).tobytes()
+        except Exception:  # noqa: BLE001 - intensity is optional
+            pass
         return frame
 
     def _frame_header(self, handle, sensor_type):

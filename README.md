@@ -130,6 +130,6 @@ dotnet test                                   # in another
 | Sensors (pull + push) | RTX camera (RGB8 + depth), contact, and lidar (point cloud) |
 
 All four sensor types (camera, contact, lidar, IMU) and `ImportUrdfAsync` are verified live
-(camera RGB8+depth; contact `in_contact`/count; lidar ~200k-point cloud decoded from the GMO
-buffer; URDF import of `assets/urdf/04-materials.urdf` → `/World/robot`). IMU uses best-effort
-field extraction.
+(camera RGB8+depth; contact `in_contact`/count/force-magnitude; lidar ~200k-point cloud with
+per-point intensity, decoded from the GMO buffer; URDF import of `assets/urdf/04-materials.urdf`
+→ `/World/robot`). IMU uses best-effort field extraction.

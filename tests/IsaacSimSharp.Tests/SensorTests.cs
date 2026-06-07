@@ -65,10 +65,11 @@ public sealed class SensorTests
 
         Assert.Equal(SensorType.SensorContact, frame.Type);
         Assert.True(frame.Contact.InContact);
+        Assert.True(frame.Contact.ForceMagnitude > 0);
     }
 
     [Fact]
-    public async Task Lidar_pull_returns_point_cloud()
+    public async Task Lidar_pull_returns_point_cloud_with_intensities()
     {
         using var client = _fixture.CreateClient();
         var lidar = await client.Sensors.CreateLidarAsync("/World/lidar");
@@ -77,5 +78,6 @@ public sealed class SensorTests
         Assert.Equal(SensorType.SensorLidar, frame.Type);
         Assert.Equal(3u, frame.PointCloud.Count);
         Assert.Equal(3 * 12, frame.PointCloud.Points.Length);
+        Assert.Equal(3 * 4, frame.PointCloud.Intensities.Length);
     }
 }

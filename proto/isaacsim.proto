@@ -314,13 +314,15 @@ message ImuFrame {
 
 message ContactFrame {
   bool in_contact = 1;
-  Vec3 force = 2;     // net contact force, when available
-  uint32 count = 3;   // number of contacts, when available
+  Vec3 force = 2;            // net contact force vector, when available
+  uint32 count = 3;         // number of contacts, when available
+  float force_magnitude = 4; // scalar contact force reading, when available
 }
 
 message PointCloudFrame {
-  uint32 count = 1;  // number of points
-  bytes points = 2;  // float32 xyz triplets, length = count * 12
+  uint32 count = 1;       // number of points
+  bytes points = 2;       // float32 xyz triplets, length = count * 12
+  bytes intensities = 3;  // optional float32 per-point intensity, length = count * 4
 }
 
 message SensorFrame {

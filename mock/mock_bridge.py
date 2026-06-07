@@ -53,12 +53,14 @@ def make_frame(handle: str, state: dict) -> "pb.SensorFrame":
         frame.type = pb.SENSOR_CONTACT
         frame.contact.in_contact = True
         frame.contact.force.z = 5.0
+        frame.contact.force_magnitude = 5.0
         frame.contact.count = 1
     elif kind == "lidar":
         frame.type = pb.SENSOR_LIDAR
         points = [(1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)]
         frame.point_cloud.count = len(points)
         frame.point_cloud.points = b"".join(struct.pack("<fff", *p) for p in points)
+        frame.point_cloud.intensities = b"".join(struct.pack("<f", v) for v in (0.5, 0.7, 0.9))
     else:
         frame.type = pb.SENSOR_IMU
         frame.imu.linear_acceleration.z = 9.81
