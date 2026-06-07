@@ -16,21 +16,21 @@ public sealed class SceneTests
     public SceneTests(MockBridgeFixture fixture) => _fixture = fixture;
 
     [Fact]
-    public async Task AddGroundPlane_returns_prim_path()
+    public async Task AddGroundPlaneReturnsPrimPath()
     {
         using var client = _fixture.CreateClient();
         Assert.Equal("/World/GroundPlane", await client.Scene.AddGroundPlaneAsync());
     }
 
     [Fact]
-    public async Task AddLight_returns_requested_path()
+    public async Task AddLightReturnsRequestedPath()
     {
         using var client = _fixture.CreateClient();
         Assert.Equal("/World/Sun", await client.Scene.AddLightAsync("/World/Sun", LightKind.Distant, 1500));
     }
 
     [Fact]
-    public async Task AddPrimitive_returns_requested_path()
+    public async Task AddPrimitiveReturnsRequestedPath()
     {
         using var client = _fixture.CreateClient();
         var path = await client.Scene.AddPrimitiveAsync(
@@ -39,7 +39,7 @@ public sealed class SceneTests
     }
 
     [Fact]
-    public async Task AddReference_and_ImportUrdf_return_paths()
+    public async Task AddReferenceAndImportUrdfReturnPaths()
     {
         using var client = _fixture.CreateClient();
         Assert.Equal("/World/Robot", await client.Scene.AddReferenceAsync("omniverse://robot.usd", "/World/Robot"));
@@ -47,7 +47,7 @@ public sealed class SceneTests
     }
 
     [Fact]
-    public async Task SetPrimPose_and_RemovePrim_complete()
+    public async Task SetPrimPoseAndRemovePrimComplete()
     {
         using var client = _fixture.CreateClient();
         await client.Scene.SetPrimPoseAsync("/World/Box", new Vector3(2, 1, 3));

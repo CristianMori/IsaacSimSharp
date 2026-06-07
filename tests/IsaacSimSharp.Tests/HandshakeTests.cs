@@ -10,7 +10,7 @@ public sealed class HandshakeTests
     public HandshakeTests(MockBridgeFixture fixture) => _fixture = fixture;
 
     [Fact]
-    public async Task PingAsync_echoes_message()
+    public async Task PingAsyncEchoesMessage()
     {
         using var client = _fixture.CreateClient();
         var result = await client.PingAsync("hello isaac");
@@ -18,7 +18,7 @@ public sealed class HandshakeTests
     }
 
     [Fact]
-    public async Task GetVersionAsync_returns_protocol_version()
+    public async Task GetVersionAsyncReturnsProtocolVersion()
     {
         using var client = _fixture.CreateClient();
         var version = await client.GetVersionAsync();
@@ -27,7 +27,7 @@ public sealed class HandshakeTests
     }
 
     [Fact]
-    public async Task PingAsync_times_out_when_no_bridge()
+    public async Task PingAsyncTimesOutWhenNoBridge()
     {
         using var client = IsaacSimClient.Connect("tcp://127.0.0.1:5999"); // nothing listening
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(800));

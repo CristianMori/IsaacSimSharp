@@ -14,7 +14,7 @@ public sealed class LifecycleTests
     public LifecycleTests(MockBridgeFixture fixture) => _fixture = fixture;
 
     [Fact]
-    public async Task Ack_operations_complete_without_error()
+    public async Task AckOperationsCompleteWithoutError()
     {
         using var client = _fixture.CreateClient();
         await client.NewStageAsync();
@@ -26,7 +26,7 @@ public sealed class LifecycleTests
     }
 
     [Fact]
-    public async Task StepAsync_advances_frame_counter()
+    public async Task StepAsyncAdvancesFrameCounter()
     {
         using var client = _fixture.CreateClient();
         var first = await client.StepAsync(10);
@@ -36,7 +36,7 @@ public sealed class LifecycleTests
     }
 
     [Fact]
-    public async Task ExportUsdAsync_returns_path()
+    public async Task ExportUsdAsyncReturnsPath()
     {
         using var client = _fixture.CreateClient();
         var path = await client.ExportUsdAsync(@"C:\tmp\scene.usda");

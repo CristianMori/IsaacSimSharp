@@ -14,14 +14,14 @@ public sealed class RobotTests
     public RobotTests(MockBridgeFixture fixture) => _fixture = fixture;
 
     [Fact]
-    public async Task GetAssetsRoot_returns_path()
+    public async Task GetAssetsRootReturnsPath()
     {
         using var client = _fixture.CreateClient();
         Assert.False(string.IsNullOrEmpty(await client.GetAssetsRootAsync()));
     }
 
     [Fact]
-    public async Task Register_returns_dof_metadata()
+    public async Task RegisterReturnsDofMetadata()
     {
         using var client = _fixture.CreateClient();
         var robot = await client.Robots.RegisterAsync("/World/robot");
@@ -31,7 +31,7 @@ public sealed class RobotTests
     }
 
     [Fact]
-    public async Task SetPositionTargets_then_GetState_reflects_targets()
+    public async Task SetPositionTargetsThenGetStateReflectsTargets()
     {
         using var client = _fixture.CreateClient();
         var robot = await client.Robots.RegisterAsync("/World/robot");

@@ -16,7 +16,7 @@ public sealed class UsdTests
     public UsdTests(MockBridgeFixture fixture) => _fixture = fixture;
 
     [Fact]
-    public async Task Define_then_list_and_get_prim()
+    public async Task DefineThenListAndGetPrim()
     {
         using var client = _fixture.CreateClient();
         await client.NewStageAsync();
@@ -31,7 +31,7 @@ public sealed class UsdTests
     }
 
     [Fact]
-    public async Task GetPrim_reports_missing()
+    public async Task GetPrimReportsMissing()
     {
         using var client = _fixture.CreateClient();
         await client.NewStageAsync();
@@ -40,7 +40,7 @@ public sealed class UsdTests
     }
 
     [Fact]
-    public async Task SetAttribute_then_GetAttribute_roundtrips_typed_values()
+    public async Task SetAttributeThenGetAttributeRoundtripsTypedValues()
     {
         using var client = _fixture.CreateClient();
         await client.NewStageAsync();
@@ -64,7 +64,7 @@ public sealed class UsdTests
     }
 
     [Fact]
-    public async Task GetAttribute_reports_missing()
+    public async Task GetAttributeReportsMissing()
     {
         using var client = _fixture.CreateClient();
         await client.NewStageAsync();

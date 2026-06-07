@@ -15,7 +15,7 @@ public sealed class SensorTests
     public SensorTests(MockBridgeFixture fixture) => _fixture = fixture;
 
     [Fact]
-    public async Task Camera_pull_returns_image_frame()
+    public async Task CameraPullReturnsImageFrame()
     {
         using var client = _fixture.CreateClient();
         var cam = await client.Sensors.CreateCameraAsync("/World/cam_pull", width: 8, height: 8);
@@ -28,7 +28,7 @@ public sealed class SensorTests
     }
 
     [Fact]
-    public async Task Camera_stream_pushes_frames()
+    public async Task CameraStreamPushesFrames()
     {
         using var client = _fixture.CreateClient();
         var cam = await client.Sensors.CreateCameraAsync("/World/cam_stream", width: 4, height: 4);
@@ -46,7 +46,7 @@ public sealed class SensorTests
     }
 
     [Fact]
-    public async Task Imu_pull_returns_imu_frame()
+    public async Task ImuPullReturnsImuFrame()
     {
         using var client = _fixture.CreateClient();
         var imu = await client.Sensors.CreateImuAsync("/World/imu");
@@ -57,7 +57,7 @@ public sealed class SensorTests
     }
 
     [Fact]
-    public async Task Contact_pull_returns_contact_frame()
+    public async Task ContactPullReturnsContactFrame()
     {
         using var client = _fixture.CreateClient();
         var contact = await client.Sensors.CreateContactAsync("/World/foot/contact");
@@ -69,7 +69,7 @@ public sealed class SensorTests
     }
 
     [Fact]
-    public async Task Lidar_pull_returns_point_cloud_with_intensities()
+    public async Task LidarPullReturnsPointCloudWithIntensities()
     {
         using var client = _fixture.CreateClient();
         var lidar = await client.Sensors.CreateLidarAsync("/World/lidar");
@@ -82,7 +82,7 @@ public sealed class SensorTests
     }
 
     [Fact]
-    public async Task Radar_pull_returns_point_cloud()
+    public async Task RadarPullReturnsPointCloud()
     {
         using var client = _fixture.CreateClient();
         var radar = await client.Sensors.CreateRadarAsync("/World/radar");

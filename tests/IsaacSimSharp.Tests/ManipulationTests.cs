@@ -15,7 +15,7 @@ public sealed class ManipulationTests
     public ManipulationTests(MockBridgeFixture fixture) => _fixture = fixture;
 
     [Fact]
-    public async Task ApplyRigidBody_shows_in_prim_apis()
+    public async Task ApplyRigidBodyShowsInPrimApis()
     {
         using var client = _fixture.CreateClient();
         await client.NewStageAsync();
@@ -28,7 +28,7 @@ public sealed class ManipulationTests
     }
 
     [Fact]
-    public async Task Material_create_and_bind()
+    public async Task MaterialCreateAndBind()
     {
         using var client = _fixture.CreateClient();
         await client.NewStageAsync();
@@ -39,7 +39,7 @@ public sealed class ManipulationTests
     }
 
     [Fact]
-    public async Task SetActive_then_describe_reflects_state()
+    public async Task SetActiveThenDescribeReflectsState()
     {
         using var client = _fixture.CreateClient();
         await client.NewStageAsync();
@@ -51,7 +51,7 @@ public sealed class ManipulationTests
     }
 
     [Fact]
-    public async Task Velocity_roundtrips()
+    public async Task VelocityRoundtrips()
     {
         using var client = _fixture.CreateClient();
         await client.NewStageAsync();
@@ -65,7 +65,7 @@ public sealed class ManipulationTests
     }
 
     [Fact]
-    public async Task Raycast_returns_hit()
+    public async Task RaycastReturnsHit()
     {
         using var client = _fixture.CreateClient();
         await client.NewStageAsync();

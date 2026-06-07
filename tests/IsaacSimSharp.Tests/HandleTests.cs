@@ -14,7 +14,7 @@ public sealed class HandleTests
     public HandleTests(MockBridgeFixture fixture) => _fixture = fixture;
 
     [Fact]
-    public async Task Cube_handle_set_and_get_position()
+    public async Task CubeHandleSetAndGetPosition()
     {
         using var client = _fixture.CreateClient();
         await client.NewStageAsync();
@@ -28,7 +28,7 @@ public sealed class HandleTests
     }
 
     [Fact]
-    public async Task Edit_scope_batches_fluent_mutations()
+    public async Task EditScopeBatchesFluentMutations()
     {
         using var client = _fixture.CreateClient();
         await client.NewStageAsync();
@@ -47,7 +47,7 @@ public sealed class HandleTests
     }
 
     [Fact]
-    public async Task FindPrims_filters_by_type()
+    public async Task FindPrimsFiltersByType()
     {
         using var client = _fixture.CreateClient();
         await client.NewStageAsync();
@@ -61,7 +61,7 @@ public sealed class HandleTests
     }
 
     [Fact]
-    public async Task Rename_reparent_duplicate()
+    public async Task RenameReparentDuplicate()
     {
         using var client = _fixture.CreateClient();
         await client.NewStageAsync();
@@ -82,7 +82,7 @@ public sealed class HandleTests
     }
 
     [Fact]
-    public async Task GetBounds_reflects_position_and_size()
+    public async Task GetBoundsReflectsPositionAndSize()
     {
         using var client = _fixture.CreateClient();
         await client.NewStageAsync();
