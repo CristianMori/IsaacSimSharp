@@ -57,7 +57,7 @@ build, via Grpc.Tools) and the Python classes (via `tools/gen_proto.ps1`).
 | `src/IsaacSimSharp/` | the C# SDK (`IsaacSimClient` + `Scene` / `Robots` / `Sensors` facades) |
 | `bridge/isaacsim_bridge/` | Python bridge that runs inside Isaac Sim |
 | `mock/mock_bridge.py` | pure-Python mock (no GPU) for dev, tests, CI |
-| `samples/` | `Quickstart` (scene + export), `RobotControl`, `SensorStream` (camera → PNG), `SelfHosted` (launch the bridge from C#) |
+| `samples/` | `IsaacSimSharp.Samples.slnx` — ~25 runnable examples (see [samples/README.md](samples/README.md)) |
 | `tests/` | xUnit tests run against the mock |
 | `tools/gen_proto.ps1` | regenerate the Python protobuf classes |
 
@@ -120,6 +120,24 @@ await client.NewStageAsync();
 py -3.12 mock\mock_bridge.py                  # in one terminal
 dotnet test                                   # in another
 ```
+
+## Samples
+
+`samples/IsaacSimSharp.Samples.slnx` has a small example for nearly every capability plus a few
+orchestration showcases. Briefly:
+
+- **Hosting** — ConnectAndPing, RunHeadless, RunWithUi, LivestreamHeadless
+- **Scene / USD** — BuildScene, CreateAnyPrim, EnumerateStage, ReadWriteAttributes,
+  TransformsAndBounds, ExportUsd
+- **Manipulation** — EditScope, ReparentRenameDuplicate, VisibilityAndActive
+- **Physics** — PhysicsAuthoring, Materials, RuntimePhysics, Raycast
+- **Sensors** — CameraSnapshot, CameraStream, ImuSensor, LidarSensor
+- **Robot** — LoadRobot, DriveRobot
+- **Showcases** — SceneStudio (compose → snapshot + export), DigitalTwinFeed (runtime control loop);
+  plus the original Quickstart, RobotControl, SensorStream, SelfHosted
+
+Most snippets connect to a running bridge; the hosting/showcase ones self-launch Isaac Sim.
+See **[samples/README.md](samples/README.md)** for a description of every sample.
 
 ## API surface
 
