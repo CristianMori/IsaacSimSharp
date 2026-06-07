@@ -16,7 +16,7 @@ public sealed class LifecycleTests
     [Fact]
     public async Task Ack_operations_complete_without_error()
     {
-        using var client = IsaacSimClient.Connect(_fixture.Endpoint);
+        using var client = _fixture.CreateClient();
         await client.NewStageAsync();
         await client.SetPhysicsDtAsync(1.0 / 60.0);
         await client.PlayAsync();
@@ -28,7 +28,7 @@ public sealed class LifecycleTests
     [Fact]
     public async Task StepAsync_advances_frame_counter()
     {
-        using var client = IsaacSimClient.Connect(_fixture.Endpoint);
+        using var client = _fixture.CreateClient();
         var first = await client.StepAsync(10);
         var second = await client.StepAsync(5);
         Assert.True(second.Frame > first.Frame);
@@ -38,7 +38,7 @@ public sealed class LifecycleTests
     [Fact]
     public async Task ExportUsdAsync_returns_path()
     {
-        using var client = IsaacSimClient.Connect(_fixture.Endpoint);
+        using var client = _fixture.CreateClient();
         var path = await client.ExportUsdAsync(@"C:\tmp\scene.usda");
         Assert.Equal(@"C:\tmp\scene.usda", path);
     }

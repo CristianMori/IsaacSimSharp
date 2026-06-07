@@ -10,15 +10,20 @@ namespace IsaacSimSharp.Tests;
 public sealed class MockBridgeFixture : IAsyncLifetime
 {
     public string Endpoint { get; } = "tcp://127.0.0.1:5611";
+    public string SensorEndpoint { get; } = "tcp://127.0.0.1:5612";
 
     private Process? _process;
+
+    /// <summary>Creates a client wired to this fixture's dedicated command + sensor endpoints.</summary>
+    public IsaacSimClient CreateClient()
+        => new(new IsaacSimClientOptions { CommandEndpoint = Endpoint, SensorEndpoint = SensorEndpoint });
 
     public async Task InitializeAsync()
     {
         var repoRoot = FindRepoRoot();
         var script = Path.Combine(repoRoot, "mock", "mock_bridge.py");
 
-        var psi = new ProcessStartInfo("py", $"-3.12 \"{script}\" --command-endpoint {Endpoint}")
+        var psi = new ProcessStartInfo("py", $"-3.12 \"{script}\" --command-endpoint {Endpoint} --sensor-endpoint {SensorEndpoint}")
         {
             WorkingDirectory = repoRoot,
             RedirectStandardOutput = true,
@@ -35,7 +40,7 @@ public sealed class MockBridgeFixture : IAsyncLifetime
 
     private async Task WaitForReadyAsync()
     {
-        using var client = IsaacSimClient.Connect(Endpoint);
+        using var client = CreateClient();
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(20);
         while (DateTime.UtcNow < deadline)
         {

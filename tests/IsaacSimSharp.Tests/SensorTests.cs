@@ -17,7 +17,7 @@ public sealed class SensorTests
     [Fact]
     public async Task Camera_pull_returns_image_frame()
     {
-        using var client = IsaacSimClient.Connect(_fixture.Endpoint);
+        using var client = _fixture.CreateClient();
         var cam = await client.Sensors.CreateCameraAsync("/World/cam_pull", width: 8, height: 8);
         var frame = await client.Sensors.GetFrameAsync(cam);
 
@@ -30,7 +30,7 @@ public sealed class SensorTests
     [Fact]
     public async Task Camera_stream_pushes_frames()
     {
-        using var client = IsaacSimClient.Connect(_fixture.Endpoint);
+        using var client = _fixture.CreateClient();
         var cam = await client.Sensors.CreateCameraAsync("/World/cam_stream", width: 4, height: 4);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -48,11 +48,34 @@ public sealed class SensorTests
     [Fact]
     public async Task Imu_pull_returns_imu_frame()
     {
-        using var client = IsaacSimClient.Connect(_fixture.Endpoint);
+        using var client = _fixture.CreateClient();
         var imu = await client.Sensors.CreateImuAsync("/World/imu");
         var frame = await client.Sensors.GetFrameAsync(imu);
 
         Assert.Equal(SensorType.SensorImu, frame.Type);
         Assert.Equal(9.81, frame.Imu.LinearAcceleration.Z, 3);
+    }
+
+    [Fact]
+    public async Task Contact_pull_returns_contact_frame()
+    {
+        using var client = _fixture.CreateClient();
+        var contact = await client.Sensors.CreateContactAsync("/World/foot/contact");
+        var frame = await client.Sensors.GetFrameAsync(contact);
+
+        Assert.Equal(SensorType.SensorContact, frame.Type);
+        Assert.True(frame.Contact.InContact);
+    }
+
+    [Fact]
+    public async Task Lidar_pull_returns_point_cloud()
+    {
+        using var client = _fixture.CreateClient();
+        var lidar = await client.Sensors.CreateLidarAsync("/World/lidar");
+        var frame = await client.Sensors.GetFrameAsync(lidar);
+
+        Assert.Equal(SensorType.SensorLidar, frame.Type);
+        Assert.Equal(3u, frame.PointCloud.Count);
+        Assert.Equal(3 * 12, frame.PointCloud.Points.Length);
     }
 }

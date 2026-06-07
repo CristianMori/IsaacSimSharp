@@ -16,14 +16,14 @@ public sealed class RobotTests
     [Fact]
     public async Task GetAssetsRoot_returns_path()
     {
-        using var client = IsaacSimClient.Connect(_fixture.Endpoint);
+        using var client = _fixture.CreateClient();
         Assert.False(string.IsNullOrEmpty(await client.GetAssetsRootAsync()));
     }
 
     [Fact]
     public async Task Register_returns_dof_metadata()
     {
-        using var client = IsaacSimClient.Connect(_fixture.Endpoint);
+        using var client = _fixture.CreateClient();
         var robot = await client.Robots.RegisterAsync("/World/robot");
         Assert.Equal("/World/robot", robot.PrimPath);
         Assert.Equal(9, robot.DofCount);
@@ -33,7 +33,7 @@ public sealed class RobotTests
     [Fact]
     public async Task SetPositionTargets_then_GetState_reflects_targets()
     {
-        using var client = IsaacSimClient.Connect(_fixture.Endpoint);
+        using var client = _fixture.CreateClient();
         var robot = await client.Robots.RegisterAsync("/World/robot");
         double[] target = { 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.0, 0.0 };
         await robot.SetPositionTargetsAsync(target);

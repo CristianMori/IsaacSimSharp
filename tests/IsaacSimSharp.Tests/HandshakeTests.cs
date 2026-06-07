@@ -12,7 +12,7 @@ public sealed class HandshakeTests
     [Fact]
     public async Task PingAsync_echoes_message()
     {
-        using var client = IsaacSimClient.Connect(_fixture.Endpoint);
+        using var client = _fixture.CreateClient();
         var result = await client.PingAsync("hello isaac");
         Assert.Equal("hello isaac", result);
     }
@@ -20,7 +20,7 @@ public sealed class HandshakeTests
     [Fact]
     public async Task GetVersionAsync_returns_protocol_version()
     {
-        using var client = IsaacSimClient.Connect(_fixture.Endpoint);
+        using var client = _fixture.CreateClient();
         var version = await client.GetVersionAsync();
         Assert.Equal("0.1.0", version.ProtocolVersion);
         Assert.False(string.IsNullOrEmpty(version.BridgeVersion));

@@ -54,6 +54,39 @@ public sealed class SensorsApi
         return reply.Sensor.Handle;
     }
 
+    /// <summary>Creates a contact sensor on a body; returns its handle.</summary>
+    public async Task<string> CreateContactAsync(
+        string primPath,
+        Vector3 position = default,
+        double radius = 0.1,
+        double minThreshold = 0.0,
+        double maxThreshold = 1e7,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new CreateContactRequest
+        {
+            PrimPath = primPath,
+            Position = ToVec3(position),
+            Radius = radius,
+            MinThreshold = minThreshold,
+            MaxThreshold = maxThreshold,
+        };
+        var reply = (await _commands.SendAsync(new Command { CreateContact = request }, cancellationToken).ConfigureAwait(false)).EnsureOk();
+        return reply.Sensor.Handle;
+    }
+
+    /// <summary>Creates an RTX lidar from a named config (e.g. "Example_Rotary"); returns its handle.</summary>
+    public async Task<string> CreateLidarAsync(
+        string primPath,
+        string config = "Example_Rotary",
+        Vector3 position = default,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new CreateLidarRequest { PrimPath = primPath, Config = config, Position = ToVec3(position) };
+        var reply = (await _commands.SendAsync(new Command { CreateLidar = request }, cancellationToken).ConfigureAwait(false)).EnsureOk();
+        return reply.Sensor.Handle;
+    }
+
     /// <summary>Pulls a single, current frame for the sensor on demand (request/reply).</summary>
     public async Task<SensorFrame> GetFrameAsync(string handle, CancellationToken cancellationToken = default)
     {

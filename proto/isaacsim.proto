@@ -49,6 +49,8 @@ message Command {
     SubscribeRequest subscribe = 35;
     UnsubscribeRequest unsubscribe = 36;
     GetSensorFrameRequest get_sensor_frame = 37;
+    CreateContactRequest create_contact = 38;
+    CreateLidarRequest create_lidar = 39;
   }
 }
 
@@ -255,6 +257,8 @@ enum SensorType {
   SENSOR_UNKNOWN = 0;
   SENSOR_CAMERA = 1;
   SENSOR_IMU = 2;
+  SENSOR_CONTACT = 3;
+  SENSOR_LIDAR = 4;
 }
 
 message SensorReply {
@@ -273,6 +277,20 @@ message CreateCameraRequest {
 message CreateImuRequest {
   string prim_path = 1; // e.g. /World/robot/link/imu_sensor
   Vec3 position = 2;
+}
+
+message CreateContactRequest {
+  string prim_path = 1;     // e.g. /World/robot/foot/contact_sensor
+  Vec3 position = 2;
+  double radius = 3;        // defaults to 0.1
+  double min_threshold = 4; // defaults to 0
+  double max_threshold = 5; // defaults to 1e7
+}
+
+message CreateLidarRequest {
+  string prim_path = 1;
+  string config = 2; // e.g. "Example_Rotary"; defaults to Example_Rotary
+  Vec3 position = 3;
 }
 
 message SubscribeRequest { string handle = 1; }
@@ -294,6 +312,17 @@ message ImuFrame {
   Quat orientation = 3; // wxyz
 }
 
+message ContactFrame {
+  bool in_contact = 1;
+  Vec3 force = 2;     // net contact force, when available
+  uint32 count = 3;   // number of contacts, when available
+}
+
+message PointCloudFrame {
+  uint32 count = 1;  // number of points
+  bytes points = 2;  // float32 xyz triplets, length = count * 12
+}
+
 message SensorFrame {
   string handle = 1;
   SensorType type = 2;
@@ -302,5 +331,7 @@ message SensorFrame {
   oneof data {
     ImageFrame image = 10;
     ImuFrame imu = 11;
+    ContactFrame contact = 12;
+    PointCloudFrame point_cloud = 13;
   }
 }

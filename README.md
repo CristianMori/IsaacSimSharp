@@ -116,8 +116,8 @@ dotnet test                                   # in another
   `AddReferenceAsync`, `ImportUrdfAsync`, `SetPrimPoseAsync`, `RemovePrimAsync`.
 - **Robots** (`client.Robots`): `RegisterAsync` → `RobotArticulation` with `GetStateAsync`,
   `SetPositionTargetsAsync`, `SetVelocityTargetsAsync`, `SetEffortsAsync`.
-- **Sensors** (`client.Sensors`): `CreateCameraAsync`, `CreateImuAsync`, `GetFrameAsync` (pull),
-  `StreamAsync` (push, `IAsyncEnumerable`).
+- **Sensors** (`client.Sensors`): `CreateCameraAsync`, `CreateImuAsync`, `CreateContactAsync`,
+  `CreateLidarAsync`, `GetFrameAsync` (pull), `StreamAsync` (push, `IAsyncEnumerable`).
 
 ## Status
 
@@ -127,8 +127,9 @@ dotnet test                                   # in another
 | Lifecycle + USD export | export + reopen |
 | Scene configuration | ground/light/primitives fall under gravity; pose/remove |
 | Robot control | Franka loaded, 9 DOFs, arm drives to target |
-| Sensors (pull + push) | RTX camera 640×480 RGB8 + depth, streamed and pulled |
+| Sensors (pull + push) | RTX camera (RGB8 + depth), contact, and lidar (point cloud) |
 
-`AddReferenceAsync`, the camera stream, and `ImportUrdfAsync` are verified live (URDF import was
-checked with `assets/urdf/04-materials.urdf`, producing `/World/robot` → `base_link`/legs). IMU
-streaming uses best-effort field extraction. Contact and lidar sensors are not implemented yet.
+All four sensor types (camera, contact, lidar, IMU) and `ImportUrdfAsync` are verified live
+(camera RGB8+depth; contact `in_contact`/count; lidar ~200k-point cloud decoded from the GMO
+buffer; URDF import of `assets/urdf/04-materials.urdf` → `/World/robot`). IMU uses best-effort
+field extraction.

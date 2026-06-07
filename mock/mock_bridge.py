@@ -38,6 +38,8 @@ _PRIM_OPS = {
 
 
 def make_frame(handle: str, state: dict) -> "pb.SensorFrame":
+    import struct
+
     kind, width, height = state["sensors"][handle]
     frame = pb.SensorFrame(handle=handle, frame=state["frame"], sim_time=state["frame"] / 60.0)
     if kind == "camera":
@@ -47,6 +49,16 @@ def make_frame(handle: str, state: dict) -> "pb.SensorFrame":
         frame.image.channels = 4
         frame.image.encoding = "rgba8"
         frame.image.data = bytes([128, 128, 128, 255]) * (width * height)
+    elif kind == "contact":
+        frame.type = pb.SENSOR_CONTACT
+        frame.contact.in_contact = True
+        frame.contact.force.z = 5.0
+        frame.contact.count = 1
+    elif kind == "lidar":
+        frame.type = pb.SENSOR_LIDAR
+        points = [(1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)]
+        frame.point_cloud.count = len(points)
+        frame.point_cloud.points = b"".join(struct.pack("<fff", *p) for p in points)
     else:
         frame.type = pb.SENSOR_IMU
         frame.imu.linear_acceleration.z = 9.81
@@ -92,6 +104,14 @@ def handle(cmd: "pb.Command", state: dict) -> "pb.Reply":
     elif which == "create_imu":
         h = cmd.create_imu.prim_path or "/World/imu_sensor"
         state["sensors"][h] = ("imu", 0, 0)
+        reply.sensor.handle = h
+    elif which == "create_contact":
+        h = cmd.create_contact.prim_path or "/World/contact_sensor"
+        state["sensors"][h] = ("contact", 0, 0)
+        reply.sensor.handle = h
+    elif which == "create_lidar":
+        h = cmd.create_lidar.prim_path or "/World/lidar"
+        state["sensors"][h] = ("lidar", 0, 0)
         reply.sensor.handle = h
     elif which == "get_sensor_frame":
         h = cmd.get_sensor_frame.handle

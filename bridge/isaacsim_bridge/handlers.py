@@ -33,6 +33,27 @@ def _imu_field(data, names):
         return None
 
 
+def _scalar_field(data, names):
+    """Best-effort extraction of a scalar/bool from a dict or object."""
+    import numpy as np
+
+    value = None
+    for name in names:
+        if isinstance(data, dict) and name in data:
+            value = data[name]
+            break
+        if hasattr(data, name):
+            value = getattr(data, name)
+            break
+    if value is None:
+        return None
+    try:
+        flat = np.asarray(value).reshape(-1)
+        return flat[0] if flat.size else None
+    except Exception:  # noqa: BLE001
+        return value
+
+
 class Handlers:
     def __init__(self, sim_app) -> None:
         self.sim_app = sim_app
@@ -370,6 +391,44 @@ class Handlers:
         self._sensors[path] = {"type": pb.SENSOR_IMU, "sensor": sensor}
         reply.sensor.handle = path
 
+    def _h_create_contact(self, cmd, reply) -> None:
+        import numpy as np
+        from isaacsim.sensors.experimental.physics import Contact, ContactSensor
+
+        req = cmd.create_contact
+        path = req.prim_path or "/World/contact_sensor"
+        contact = Contact.create(
+            path,
+            min_threshold=req.min_threshold or 0.0,
+            max_threshold=req.max_threshold or 1e7,
+            radius=req.radius or 0.1,
+            translations=np.array([[req.position.x, req.position.y, req.position.z]]),
+        )
+        sensor = ContactSensor(contact)
+        try:
+            sensor.add_raw_contact_data_to_frame()
+        except Exception:  # noqa: BLE001
+            pass
+        self._sensors[path] = {"type": pb.SENSOR_CONTACT, "sensor": sensor}
+        reply.sensor.handle = path
+
+    def _h_create_lidar(self, cmd, reply) -> None:
+        import numpy as np
+        from isaacsim.core.experimental.utils.app import enable_extension
+        from isaacsim.sensors.experimental.rtx import Lidar, LidarSensor
+
+        enable_extension("isaacsim.sensors.rtx.nodes")
+        req = cmd.create_lidar
+        path = req.prim_path or "/World/lidar"
+        lidar = Lidar.create(
+            path,
+            config=req.config or "Example_Rotary",
+            translations=np.array([req.position.x, req.position.y, req.position.z]),
+        )
+        sensor = LidarSensor(lidar, annotators=["generic-model-output"])
+        self._sensors[path] = {"type": pb.SENSOR_LIDAR, "sensor": sensor}
+        reply.sensor.handle = path
+
     def _h_subscribe(self, cmd, reply) -> None:
         handle = cmd.subscribe.handle
         if handle not in self._sensors:
@@ -394,7 +453,64 @@ class Handlers:
             return self._frame_camera(handle, info)
         if info["type"] == pb.SENSOR_IMU:
             return self._frame_imu(handle, info)
+        if info["type"] == pb.SENSOR_CONTACT:
+            return self._frame_contact(handle, info)
+        if info["type"] == pb.SENSOR_LIDAR:
+            return self._frame_lidar(handle, info)
         return None
+
+    def _debug_once(self, tag, data) -> None:
+        seen = getattr(self, "_debugged", None)
+        if seen is None:
+            seen = self._debugged = set()
+        if tag in seen:
+            return
+        seen.add(tag)
+        keys = list(data.keys()) if isinstance(data, dict) else [a for a in dir(data) if not a.startswith("_")]
+        print(f"[isaacsim-bridge] {tag} get_data() type={type(data).__name__} keys/attrs={keys}", flush=True)
+
+    def _frame_contact(self, handle, info):
+        import numpy as np
+
+        data = info["sensor"].get_data()
+        self._debug_once("contact", data)
+        frame = self._frame_header(handle, pb.SENSOR_CONTACT)
+        in_contact = _scalar_field(data, ("in_contact", "inContact", "is_in_contact"))
+        if in_contact is not None:
+            frame.contact.in_contact = bool(in_contact)
+        force = _imu_field(data, ("force", "forces", "net_force", "value"))
+        if force is not None and len(force) >= 3:
+            frame.contact.force.x, frame.contact.force.y, frame.contact.force.z = force[:3]
+        count = _scalar_field(data, ("number_of_contacts", "num_contacts", "count"))
+        if count is not None:
+            frame.contact.count = int(count)
+        return frame
+
+    def _frame_lidar(self, handle, info):
+        import numpy as np
+        from isaacsim.sensors.experimental.rtx import parse_generic_model_output_data
+
+        data, _ = info["sensor"].get_data("generic-model-output")
+        if data is None:
+            return None
+        gmo = parse_generic_model_output_data(data)
+        if gmo.numElements == 0:
+            return None  # scan buffer not populated yet this frame
+
+        # GMO spherical returns: x = azimuth(deg), y = elevation(deg), z = range(m).
+        azimuth = np.radians(np.asarray(gmo.x, dtype=np.float64))
+        elevation = np.radians(np.asarray(gmo.y, dtype=np.float64))
+        rng = np.asarray(gmo.z, dtype=np.float64)
+        cos_el = np.cos(elevation)
+        pts = np.stack(
+            [rng * cos_el * np.cos(azimuth), rng * cos_el * np.sin(azimuth), rng * np.sin(elevation)],
+            axis=-1,
+        ).astype(np.float32)
+
+        frame = self._frame_header(handle, pb.SENSOR_LIDAR)
+        frame.point_cloud.count = int(pts.shape[0])
+        frame.point_cloud.points = np.ascontiguousarray(pts).tobytes()
+        return frame
 
     def _frame_header(self, handle, sensor_type):
         return pb.SensorFrame(
