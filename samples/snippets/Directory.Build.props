@@ -1,0 +1,13 @@
+<!-- Common settings for all focused snippet samples: each is a console app
+     referencing the IsaacSimSharp SDK, so the individual .csproj files stay empty. -->
+<Project>
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\src\IsaacSimSharp\IsaacSimSharp.csproj" />
+  </ItemGroup>
+</Project>

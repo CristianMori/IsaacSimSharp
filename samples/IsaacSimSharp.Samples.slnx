@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/snippets/">
+    <Project Path="snippets/BuildScene/BuildScene.csproj" />
+    <Project Path="snippets/CameraSnapshot/CameraSnapshot.csproj" />
+    <Project Path="snippets/ConnectAndPing/ConnectAndPing.csproj" />
+    <Project Path="snippets/DriveRobot/DriveRobot.csproj" />
+    <Project Path="snippets/EditScope/EditScope.csproj" />
+    <Project Path="snippets/EnumerateStage/EnumerateStage.csproj" />
+    <Project Path="snippets/ExportUsd/ExportUsd.csproj" />
+    <Project Path="snippets/Raycast/Raycast.csproj" />
+    <Project Path="snippets/ReadWriteAttributes/ReadWriteAttributes.csproj" />
+    <Project Path="snippets/RunHeadless/RunHeadless.csproj" />
+    <Project Path="snippets/RunWithUi/RunWithUi.csproj" />
+    <Project Path="snippets/TransformsAndBounds/TransformsAndBounds.csproj" />
+  </Folder>
+  <Project Path="../src/IsaacSimSharp/IsaacSimSharp.csproj" />
+  <Project Path="Quickstart/Quickstart.csproj" />
+  <Project Path="RobotControl/RobotControl.csproj" />
+  <Project Path="SelfHosted/SelfHosted.csproj" />
+  <Project Path="SensorStream/SensorStream.csproj" />
+</Solution>
