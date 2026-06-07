@@ -16,6 +16,8 @@ __pycache__/
 # Local artifacts
 /out/
 /nupkg/
+studio_out/
+*.png
 *.usd
 *.usda
 *.log
