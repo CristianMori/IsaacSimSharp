@@ -57,7 +57,7 @@ build, via Grpc.Tools) and the Python classes (via `tools/gen_proto.ps1`).
 | `src/IsaacSimSharp/` | the C# SDK (`IsaacSimClient` + `Scene` / `Robots` / `Sensors` facades) |
 | `bridge/isaacsim_bridge/` | Python bridge that runs inside Isaac Sim |
 | `mock/mock_bridge.py` | pure-Python mock (no GPU) for dev, tests, CI |
-| `samples/` | `Quickstart` (scene + export), `RobotControl`, `SensorStream` (camera → PNG) |
+| `samples/` | `Quickstart` (scene + export), `RobotControl`, `SensorStream` (camera → PNG), `SelfHosted` (launch the bridge from C#) |
 | `tests/` | xUnit tests run against the mock |
 | `tools/gen_proto.ps1` | regenerate the Python protobuf classes |
 
@@ -98,6 +98,18 @@ bridge\run_bridge.bat --command-endpoint tcp://127.0.0.1:5599 --sensor-endpoint 
 dotnet run --project samples/Quickstart      # build a scene, simulate, export USD
 dotnet run --project samples/RobotControl    # load a Franka and drive its arm to a pose
 dotnet run --project samples/SensorStream    # stream an RTX camera and save PNGs to out/
+```
+
+**Or launch the bridge from C#** (starts Isaac Sim, waits until ready, shuts it down on dispose):
+
+```csharp
+await using var session = await IsaacSimBridge.LaunchAsync(new BridgeLaunchOptions
+{
+    BridgeDirectory = @"C:\path\to\repo\bridge", // or set %ISAACSIMSHARP_BRIDGE%
+    Gui = true,                                  // open the window to watch
+});
+var client = session.Client;                     // ready to use
+await client.NewStageAsync();
 ```
 
 **No GPU?** Develop and test against the mock:
