@@ -108,6 +108,40 @@ public sealed class UsdApi
         return reply.PrimList.Prims;
     }
 
+    /// <summary>Shows or hides a prim.</summary>
+    public async Task SetVisibilityAsync(string primPath, bool visible, CancellationToken cancellationToken = default)
+        => (await _commands.SendAsync(new Command { SetVisibility = new SetVisibilityRequest { PrimPath = primPath, Visible = visible } }, cancellationToken).ConfigureAwait(false)).EnsureOk();
+
+    /// <summary>Activates or deactivates a prim (deactivated prims and their subtree are pruned).</summary>
+    public async Task SetActiveAsync(string primPath, bool active, CancellationToken cancellationToken = default)
+        => (await _commands.SendAsync(new Command { SetActive = new SetActiveRequest { PrimPath = primPath, Active = active } }, cancellationToken).ConfigureAwait(false)).EnsureOk();
+
+    /// <summary>Applies an API schema (e.g. "PhysicsRigidBodyAPI", "PhysicsCollisionAPI", or any other).</summary>
+    public async Task ApplySchemaAsync(string primPath, string schema, CancellationToken cancellationToken = default)
+        => (await _commands.SendAsync(new Command { ApplySchema = new ApplySchemaRequest { PrimPath = primPath, Schema = schema } }, cancellationToken).ConfigureAwait(false)).EnsureOk();
+
+    /// <summary>Sets the rigid-body mass (applies PhysicsMassAPI).</summary>
+    public async Task SetMassAsync(string primPath, double mass, CancellationToken cancellationToken = default)
+        => (await _commands.SendAsync(new Command { SetMass = new SetMassRequest { PrimPath = primPath, Mass = mass } }, cancellationToken).ConfigureAwait(false)).EnsureOk();
+
+    /// <summary>Creates a UsdPreviewSurface material; returns its prim path.</summary>
+    public async Task<string> CreateMaterialAsync(string primPath, Vector3 color, float metallic = 0f, float roughness = 0.5f, CancellationToken cancellationToken = default)
+    {
+        var request = new CreateMaterialRequest
+        {
+            PrimPath = primPath,
+            Color = new Color { R = color.X, G = color.Y, B = color.Z },
+            Metallic = metallic,
+            Roughness = roughness,
+        };
+        var reply = (await _commands.SendAsync(new Command { CreateMaterial = request }, cancellationToken).ConfigureAwait(false)).EnsureOk();
+        return reply.Prim.PrimPath;
+    }
+
+    /// <summary>Binds a material to a prim.</summary>
+    public async Task BindMaterialAsync(string primPath, string materialPath, CancellationToken cancellationToken = default)
+        => (await _commands.SendAsync(new Command { BindMaterial = new BindMaterialRequest { PrimPath = primPath, MaterialPath = materialPath } }, cancellationToken).ConfigureAwait(false)).EnsureOk();
+
     // ---- typed convenience setters ----
     public Task SetAttributeAsync(string primPath, string name, bool value, CancellationToken cancellationToken = default)
         => SetAttributeAsync(primPath, name, new UsdValue { BoolValue = value }, cancellationToken);

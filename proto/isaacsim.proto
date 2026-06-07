@@ -61,6 +61,16 @@ message Command {
     SetTransformRequest set_transform = 47;
     GetBoundsRequest get_bounds = 48;
     FindPrimsRequest find_prims = 49;
+    SetVisibilityRequest set_visibility = 50;
+    SetActiveRequest set_active = 51;
+    ApplySchemaRequest apply_schema = 52;
+    SetMassRequest set_mass = 53;
+    CreateMaterialRequest create_material = 54;
+    BindMaterialRequest bind_material = 55;
+    SetRigidPoseRequest set_rigid_pose = 56;
+    SetVelocityRequest set_velocity = 57;
+    GetVelocityRequest get_velocity = 58;
+    RaycastRequest raycast = 59;
   }
 }
 
@@ -86,6 +96,8 @@ message Reply {
     AttributeReply attribute = 44; // returned by get_attribute
     TransformReply transform = 46; // returned by get_transform
     BoundsReply bounds = 48;       // returned by get_bounds
+    VelocityReply velocity = 58;   // returned by get_velocity
+    RaycastReply raycast = 59;     // returned by raycast
   }
 }
 
@@ -453,6 +465,55 @@ message FindPrimsRequest {
   string type_name = 2;   // exact USD type
   string name_regex = 3;  // regex on prim name
   string has_api = 4;     // applied API schema name
+}
+
+// --------------------------- Manipulation ---------------------------
+
+message SetVisibilityRequest { string prim_path = 1; bool visible = 2; }
+message SetActiveRequest { string prim_path = 1; bool active = 2; }
+
+// Apply an API schema. Common physics schemas (PhysicsRigidBodyAPI,
+// PhysicsCollisionAPI, PhysicsMassAPI) are applied via their typed classes;
+// any other name is added as a generic applied schema.
+message ApplySchemaRequest { string prim_path = 1; string schema = 2; }
+
+message SetMassRequest { string prim_path = 1; double mass = 2; }
+
+// Create a UsdPreviewSurface material at prim_path.
+message CreateMaterialRequest {
+  string prim_path = 1;
+  Color color = 2;     // diffuse color
+  float metallic = 3;
+  float roughness = 4;
+}
+message BindMaterialRequest { string prim_path = 1; string material_path = 2; }
+
+// Runtime physics state (apply on a rigid body during simulation).
+message SetRigidPoseRequest {
+  string prim_path = 1;
+  Vec3 position = 2;
+  Quat orientation = 3; // wxyz
+}
+message SetVelocityRequest {
+  string prim_path = 1;
+  Vec3 linear = 2;
+  Vec3 angular = 3;
+}
+message GetVelocityRequest { string prim_path = 1; }
+message VelocityReply { Vec3 linear = 1; Vec3 angular = 2; }
+
+// Closest-hit raycast against the physics scene.
+message RaycastRequest {
+  Vec3 origin = 1;
+  Vec3 direction = 2;
+  double max_distance = 3;
+}
+message RaycastReply {
+  bool hit = 1;
+  string prim_path = 2; // collider hit
+  Vec3 position = 3;
+  Vec3 normal = 4;
+  double distance = 5;
 }
 
 message GetAttributeRequest {

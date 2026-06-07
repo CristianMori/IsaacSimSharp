@@ -134,7 +134,11 @@ dotnet test                                   # in another
 - **USD** (`client.Usd`): generic, reflective stage access — `ListPrimsAsync` / `FindPrimsAsync`
   (enumerate/query by type/name/API), `GetPrimAsync` (type/attrs/children/metadata/applied APIs),
   `DefinePrimAsync` (instantiate any USD type), `GetAttributeAsync` / `SetAttributeAsync`
-  (read/write any attribute), `GetTransformAsync` / `SetTransformAsync` / `GetBoundsAsync`.
+  (read/write any attribute), `GetTransformAsync` / `SetTransformAsync` / `GetBoundsAsync`,
+  `SetVisibilityAsync` / `SetActiveAsync`, `ApplySchemaAsync` (rigid body / collider / any API),
+  `SetMassAsync`, `CreateMaterialAsync` / `BindMaterialAsync`.
+- **Physics** (`client.Physics`): runtime rigid-body state — `SetRigidPoseAsync` (teleport),
+  `SetVelocityAsync` / `GetVelocityAsync`, and `RaycastAsync` (scene query).
 - **Handles** (object paradigm): `client.CreateCubeAsync` / `client.GetPrim` / `client.DefinePrimAsync`
   return `Prim` / `Cube` objects with async methods (`SetPositionAsync`, `GetBoundsAsync`,
   `GetChildrenAsync`, …) and a batched `EditAsync()` scope for fluent edits:

@@ -1,5 +1,6 @@
 using System.Numerics;
 using IsaacSimSharp.Handles;
+using IsaacSimSharp.Physics;
 using IsaacSimSharp.Protocol;
 using IsaacSimSharp.Robots;
 using IsaacSimSharp.Scene;
@@ -27,6 +28,7 @@ public sealed class IsaacSimClient : IDisposable
         Robots = new RobotsApi(_commands);
         Sensors = new SensorsApi(_commands, _sensorStream);
         Usd = new UsdApi(_commands);
+        Physics = new PhysicsApi(_commands);
     }
 
     /// <summary>Scene-configuration operations (ground plane, lights, primitives, references).</summary>
@@ -40,6 +42,9 @@ public sealed class IsaacSimClient : IDisposable
 
     /// <summary>Generic USD access (enumerate prims, define any type, read/write attributes).</summary>
     public UsdApi Usd { get; }
+
+    /// <summary>Runtime physics (rigid-body pose/velocity, raycast).</summary>
+    public PhysicsApi Physics { get; }
 
     /// <summary>Connects to a bridge at the given command endpoint (defaults to localhost).</summary>
     public static IsaacSimClient Connect(string? commandEndpoint = null)

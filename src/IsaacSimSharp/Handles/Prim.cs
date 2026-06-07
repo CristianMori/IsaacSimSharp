@@ -56,6 +56,37 @@ public class Prim
     public Task RemoveAsync(CancellationToken cancellationToken = default)
         => Client.Scene.RemovePrimAsync(Path, cancellationToken);
 
+    public Task SetVisibleAsync(bool visible, CancellationToken cancellationToken = default)
+        => Client.Usd.SetVisibilityAsync(Path, visible, cancellationToken);
+
+    public Task SetActiveAsync(bool active, CancellationToken cancellationToken = default)
+        => Client.Usd.SetActiveAsync(Path, active, cancellationToken);
+
+    /// <summary>Makes this prim a dynamic rigid body (applies PhysicsRigidBodyAPI).</summary>
+    public Task ApplyRigidBodyAsync(CancellationToken cancellationToken = default)
+        => Client.Usd.ApplySchemaAsync(Path, "PhysicsRigidBodyAPI", cancellationToken);
+
+    /// <summary>Gives this prim a collider (applies PhysicsCollisionAPI).</summary>
+    public Task ApplyColliderAsync(CancellationToken cancellationToken = default)
+        => Client.Usd.ApplySchemaAsync(Path, "PhysicsCollisionAPI", cancellationToken);
+
+    public Task SetMassAsync(double mass, CancellationToken cancellationToken = default)
+        => Client.Usd.SetMassAsync(Path, mass, cancellationToken);
+
+    public Task BindMaterialAsync(string materialPath, CancellationToken cancellationToken = default)
+        => Client.Usd.BindMaterialAsync(Path, materialPath, cancellationToken);
+
+    // ---- runtime physics (when this prim is a rigid body) ----
+    public Task SetVelocityAsync(Vector3 linear, Vector3 angular, CancellationToken cancellationToken = default)
+        => Client.Physics.SetVelocityAsync(Path, linear, angular, cancellationToken);
+
+    public Task<VelocityReply> GetVelocityAsync(CancellationToken cancellationToken = default)
+        => Client.Physics.GetVelocityAsync(Path, cancellationToken);
+
+    /// <summary>Teleports this rigid body to a world pose (immediate, even mid-sim).</summary>
+    public Task SetWorldPoseAsync(Vector3 position, Quaternion orientation, CancellationToken cancellationToken = default)
+        => Client.Physics.SetRigidPoseAsync(Path, position, orientation, cancellationToken);
+
     public async Task<IReadOnlyList<Prim>> GetChildrenAsync(CancellationToken cancellationToken = default)
     {
         var desc = await DescribeAsync(cancellationToken).ConfigureAwait(false);

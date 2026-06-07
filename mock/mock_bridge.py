@@ -226,6 +226,8 @@ def handle(cmd: "pb.Command", state: dict) -> "pb.Reply":
             reply.prim_desc.attributes.extend(info["attrs"].keys())
             reply.prim_desc.children.extend(
                 x for x in state["stage"] if x.rsplit("/", 1)[0] == cmd.get_prim.prim_path)
+            reply.prim_desc.active = info.get("active", True)
+            reply.prim_desc.applied_apis.extend(info.get("apis", []))
     elif which == "get_attribute":
         info = state["stage"].get(cmd.get_attribute.prim_path)
         if info and cmd.get_attribute.name in info["attrs"]:
@@ -238,6 +240,43 @@ def handle(cmd: "pb.Command", state: dict) -> "pb.Reply":
         stored = pb.UsdValue()
         stored.CopyFrom(cmd.set_attribute.value)
         info["attrs"][cmd.set_attribute.name] = stored
+    elif which == "set_visibility":
+        state["stage"].setdefault(cmd.set_visibility.prim_path, {"type": "", "attrs": {}, "xform": _identity_xform()})["visible"] = cmd.set_visibility.visible
+    elif which == "set_active":
+        state["stage"].setdefault(cmd.set_active.prim_path, {"type": "", "attrs": {}, "xform": _identity_xform()})["active"] = cmd.set_active.active
+    elif which == "apply_schema":
+        entry = state["stage"].setdefault(cmd.apply_schema.prim_path, {"type": "", "attrs": {}, "xform": _identity_xform()})
+        entry.setdefault("apis", []).append(cmd.apply_schema.schema)
+    elif which == "set_mass":
+        state["stage"].setdefault(cmd.set_mass.prim_path, {"type": "", "attrs": {}, "xform": _identity_xform()})["mass"] = cmd.set_mass.mass
+    elif which == "create_material":
+        path = cmd.create_material.prim_path or "/World/Materials/Material"
+        state["stage"][path] = {"type": "Material", "attrs": {}, "xform": _identity_xform()}
+        reply.prim.prim_path = path
+    elif which == "bind_material":
+        pass
+    elif which == "set_rigid_pose":
+        req = cmd.set_rigid_pose
+        xf = state["stage"].setdefault(req.prim_path, {"type": "", "attrs": {}, "xform": _identity_xform()}).setdefault("xform", _identity_xform())
+        xf["t"] = [req.position.x, req.position.y, req.position.z]
+        xf["o"] = [req.orientation.w, req.orientation.x, req.orientation.y, req.orientation.z]
+    elif which == "set_velocity":
+        req = cmd.set_velocity
+        state["stage"].setdefault(req.prim_path, {"type": "", "attrs": {}, "xform": _identity_xform()})["vel"] = (
+            [req.linear.x, req.linear.y, req.linear.z], [req.angular.x, req.angular.y, req.angular.z])
+    elif which == "get_velocity":
+        lin, ang = state["stage"].get(cmd.get_velocity.prim_path, {}).get("vel", ([0.0, 0.0, 0.0], [0.0, 0.0, 0.0]))
+        reply.velocity.linear.x, reply.velocity.linear.y, reply.velocity.linear.z = lin
+        reply.velocity.angular.x, reply.velocity.angular.y, reply.velocity.angular.z = ang
+    elif which == "raycast":
+        req = cmd.raycast
+        dist = req.max_distance / 2.0
+        reply.raycast.hit = True
+        reply.raycast.prim_path = "/World/mockHit"
+        reply.raycast.distance = dist
+        reply.raycast.position.x = req.origin.x + req.direction.x * dist
+        reply.raycast.position.y = req.origin.y + req.direction.y * dist
+        reply.raycast.position.z = req.origin.z + req.direction.z * dist
     elif which in _ACK_ONLY:
         pass
     else:

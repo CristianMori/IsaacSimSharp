@@ -809,10 +809,127 @@ class Handlers:
             info.path = str(prim.GetPath())
             info.type_name = prim.GetTypeName()
 
+    # ------------------------------------------------------------------ manipulation
+    def _h_set_visibility(self, cmd, reply) -> None:
+        import numpy as np
+
+        self._xform(cmd.set_visibility.prim_path).set_visibilities(np.array([cmd.set_visibility.visible]))
+
+    def _h_set_active(self, cmd, reply) -> None:
+        prim = self._stage().GetPrimAtPath(cmd.set_active.prim_path)
+        if not prim.IsValid():
+            raise KeyError(f"prim not found '{cmd.set_active.prim_path}'")
+        prim.SetActive(cmd.set_active.active)
+
+    def _h_apply_schema(self, cmd, reply) -> None:
+        from pxr import UsdPhysics
+
+        prim = self._stage().GetPrimAtPath(cmd.apply_schema.prim_path)
+        if not prim.IsValid():
+            raise KeyError(f"prim not found '{cmd.apply_schema.prim_path}'")
+        schema = cmd.apply_schema.schema
+        if schema in ("PhysicsRigidBodyAPI", "RigidBodyAPI"):
+            UsdPhysics.RigidBodyAPI.Apply(prim)
+        elif schema in ("PhysicsCollisionAPI", "CollisionAPI"):
+            UsdPhysics.CollisionAPI.Apply(prim)
+        elif schema in ("PhysicsMassAPI", "MassAPI"):
+            UsdPhysics.MassAPI.Apply(prim)
+        else:
+            prim.AddAppliedSchema(schema)
+
+    def _h_set_mass(self, cmd, reply) -> None:
+        from pxr import UsdPhysics
+
+        prim = self._stage().GetPrimAtPath(cmd.set_mass.prim_path)
+        if not prim.IsValid():
+            raise KeyError(f"prim not found '{cmd.set_mass.prim_path}'")
+        UsdPhysics.MassAPI.Apply(prim).CreateMassAttr().Set(float(cmd.set_mass.mass))
+
+    def _h_create_material(self, cmd, reply) -> None:
+        from pxr import Gf, Sdf, UsdShade
+
+        req = cmd.create_material
+        path = req.prim_path or "/World/Materials/Material"
+        stage = self._stage()
+        material = UsdShade.Material.Define(stage, path)
+        shader = UsdShade.Shader.Define(stage, path + "/Shader")
+        shader.CreateIdAttr("UsdPreviewSurface")
+        shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(
+            Gf.Vec3f(req.color.r, req.color.g, req.color.b))
+        shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(float(req.metallic))
+        shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(float(req.roughness))
+        material.CreateSurfaceOutput().ConnectToSource(shader.ConnectableAPI(), "surface")
+        reply.prim.prim_path = path
+
+    def _h_bind_material(self, cmd, reply) -> None:
+        from pxr import UsdShade
+
+        stage = self._stage()
+        prim = stage.GetPrimAtPath(cmd.bind_material.prim_path)
+        material = UsdShade.Material(stage.GetPrimAtPath(cmd.bind_material.material_path))
+        if not prim.IsValid() or not material:
+            raise KeyError("prim or material not found")
+        UsdShade.MaterialBindingAPI.Apply(prim).Bind(material)
+
+    # ------------------------------------------------------------------ runtime physics
+    def _h_set_rigid_pose(self, cmd, reply) -> None:
+        import numpy as np
+
+        req = cmd.set_rigid_pose
+        self._rigid(req.prim_path).set_world_poses(
+            positions=np.array([[req.position.x, req.position.y, req.position.z]]),
+            orientations=np.array([[req.orientation.w, req.orientation.x, req.orientation.y, req.orientation.z]]),
+        )
+
+    def _h_set_velocity(self, cmd, reply) -> None:
+        import numpy as np
+
+        req = cmd.set_velocity
+        self._rigid(req.prim_path).set_velocities(
+            linear_velocities=np.array([[req.linear.x, req.linear.y, req.linear.z]]),
+            angular_velocities=np.array([[req.angular.x, req.angular.y, req.angular.z]]),
+        )
+
+    def _h_get_velocity(self, cmd, reply) -> None:
+        import numpy as np
+
+        linear, angular = self._rigid(cmd.get_velocity.prim_path).get_velocities()
+        lin = np.asarray(linear.numpy()).reshape(-1)
+        ang = np.asarray(angular.numpy()).reshape(-1)
+        reply.velocity.linear.x, reply.velocity.linear.y, reply.velocity.linear.z = (
+            float(lin[0]), float(lin[1]), float(lin[2]))
+        reply.velocity.angular.x, reply.velocity.angular.y, reply.velocity.angular.z = (
+            float(ang[0]), float(ang[1]), float(ang[2]))
+
+    def _h_raycast(self, cmd, reply) -> None:
+        from omni.physx import get_physx_scene_query_interface
+
+        req = cmd.raycast
+        origin = [req.origin.x, req.origin.y, req.origin.z]
+        direction = [req.direction.x, req.direction.y, req.direction.z]
+        hit = get_physx_scene_query_interface().raycast_closest(origin, direction, req.max_distance)
+        if not hit or not hit.get("hit"):
+            reply.raycast.hit = False
+            return
+        reply.raycast.hit = True
+        reply.raycast.prim_path = hit.get("collision", hit.get("rigidBody", ""))
+        pos = hit.get("position", [0.0, 0.0, 0.0])
+        nrm = hit.get("normal", [0.0, 0.0, 0.0])
+        reply.raycast.position.x, reply.raycast.position.y, reply.raycast.position.z = (
+            float(pos[0]), float(pos[1]), float(pos[2]))
+        reply.raycast.normal.x, reply.raycast.normal.y, reply.raycast.normal.z = (
+            float(nrm[0]), float(nrm[1]), float(nrm[2]))
+        reply.raycast.distance = float(hit.get("distance", 0.0))
+
     def _xform(self, path: str):
         from isaacsim.core.experimental.prims import XformPrim
 
         return XformPrim(paths=path)
+
+    def _rigid(self, path: str):
+        from isaacsim.core.experimental.prims import RigidPrim
+
+        return RigidPrim(paths=path)
 
     def _stage(self):
         stage = self._omni_usd.get_context().get_stage()
