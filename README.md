@@ -90,6 +90,8 @@ cache, then it prints `listening on ...`):
 bridge\run_bridge.bat --command-endpoint tcp://127.0.0.1:5599 --sensor-endpoint tcp://127.0.0.1:5600
 # add --gui to show the Isaac Sim window
 # add --motion-bvh to enable RTX radar (slower; off by default)
+# add --livestream to stream a headless sim over WebRTC (connect the Isaac Sim
+#     WebRTC Streaming Client to localhost:49100)
 ```
 
 **Then run a sample:**

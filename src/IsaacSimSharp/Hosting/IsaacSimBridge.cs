@@ -25,6 +25,9 @@ public sealed class BridgeLaunchOptions
     /// <summary>Enable Motion BVH (required for RTX radar; slower).</summary>
     public bool MotionBvh { get; init; }
 
+    /// <summary>Enable WebRTC livestream (view a headless sim in the Isaac Sim WebRTC client).</summary>
+    public bool Livestream { get; init; }
+
     /// <summary>How long to wait for the bridge to become ready (first launch caches shaders).</summary>
     public TimeSpan StartupTimeout { get; init; } = TimeSpan.FromMinutes(3);
 
@@ -105,7 +108,8 @@ public static class IsaacSimBridge
             + $" --command-endpoint {options.CommandEndpoint}"
             + $" --sensor-endpoint {options.SensorEndpoint}"
             + (options.Gui ? " --gui" : string.Empty)
-            + (options.MotionBvh ? " --motion-bvh" : string.Empty);
+            + (options.MotionBvh ? " --motion-bvh" : string.Empty)
+            + (options.Livestream ? " --livestream" : string.Empty);
 
         var psi = new ProcessStartInfo("cmd.exe", $"/c \"{inner}\"")
         {
