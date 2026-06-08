@@ -189,3 +189,7 @@ slows all sensors and uses more VRAM.
 
 The SDK packs as a single self-contained NuGet package (`dotnet pack src/IsaacSimSharp`),
 depending only on `NetMQ` and `Google.Protobuf`.
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE).

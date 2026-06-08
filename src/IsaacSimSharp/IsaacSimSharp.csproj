@@ -35,7 +35,7 @@
     <Description>A typed C# API for NVIDIA Isaac Sim 6.0: configure scenes, control robots, read sensors, and export USD over ZeroMQ + Protobuf.</Description>
     <PackageTags>isaac-sim;robotics;simulation;nvidia;omniverse;usd</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/CristianMori/IsaacSimSharp</RepositoryUrl>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
   </PropertyGroup>
