@@ -29,6 +29,7 @@ public sealed class SensorsApi
         Vector3 position = default,
         Quaternion? orientation = null,
         bool depth = true,
+        bool segmentation = false,
         CancellationToken cancellationToken = default)
     {
         var request = new CreateCameraRequest
@@ -37,6 +38,7 @@ public sealed class SensorsApi
             Width = (uint)width,
             Height = (uint)height,
             Depth = depth,
+            Segmentation = segmentation,
             Position = ToVec3(position),
         };
         if (orientation is { } q)

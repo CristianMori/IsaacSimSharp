@@ -46,6 +46,17 @@ public sealed class SensorTests
     }
 
     [Fact]
+    public async Task CameraSegmentationReturnsLabelImageAndLabels()
+    {
+        using var client = _fixture.CreateClient();
+        var cam = await client.Sensors.CreateCameraAsync("/World/cam_seg", width: 8, height: 8, segmentation: true);
+        var frame = await client.Sensors.GetFrameAsync(cam);
+
+        Assert.Equal(8 * 8 * 4, frame.Image.Segmentation.Length); // uint32 label per pixel
+        Assert.True(frame.Image.SegmentationLabels.Count >= 1);
+    }
+
+    [Fact]
     public async Task ImuPullReturnsImuFrame()
     {
         using var client = _fixture.CreateClient();

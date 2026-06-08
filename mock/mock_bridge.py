@@ -52,7 +52,9 @@ def _identity_xform():
 def make_frame(handle: str, state: dict) -> "pb.SensorFrame":
     import struct
 
-    kind, width, height = state["sensors"][handle]
+    entry = state["sensors"][handle]
+    kind, width, height = entry[0], entry[1], entry[2]
+    seg = entry[3] if len(entry) > 3 else False
     frame = pb.SensorFrame(handle=handle, frame=state["frame"], sim_time=state["frame"] / 60.0)
     if kind == "camera":
         frame.type = pb.SENSOR_CAMERA
@@ -61,6 +63,9 @@ def make_frame(handle: str, state: dict) -> "pb.SensorFrame":
         frame.image.channels = 4
         frame.image.encoding = "rgba8"
         frame.image.data = bytes([128, 128, 128, 255]) * (width * height)
+        if seg:
+            frame.image.segmentation = bytes(width * height * 4)  # uint32 zeros
+            frame.image.segmentation_labels[0] = "background"
     elif kind == "contact":
         frame.type = pb.SENSOR_CONTACT
         frame.contact.in_contact = True
@@ -121,7 +126,7 @@ def handle(cmd: "pb.Command", state: dict) -> "pb.Reply":
         state["targets"] = list(cmd.set_dof_targets.values)
     elif which == "create_camera":
         h = cmd.create_camera.prim_path or "/World/camera"
-        state["sensors"][h] = ("camera", cmd.create_camera.width or 8, cmd.create_camera.height or 8)
+        state["sensors"][h] = ("camera", cmd.create_camera.width or 8, cmd.create_camera.height or 8, cmd.create_camera.segmentation)
         reply.sensor.handle = h
     elif which == "create_imu":
         h = cmd.create_imu.prim_path or "/World/imu_sensor"

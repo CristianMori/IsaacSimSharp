@@ -148,7 +148,8 @@ See **[samples/README.md](samples/README.md)** for a description of every sample
   `AddReferenceAsync`, `ImportUrdfAsync`, `SetPrimPoseAsync`, `RemovePrimAsync`.
 - **Robots** (`client.Robots`): `RegisterAsync` → `RobotArticulation` with `GetStateAsync`,
   `SetPositionTargetsAsync`, `SetVelocityTargetsAsync`, `SetEffortsAsync`.
-- **Sensors** (`client.Sensors`): `CreateCameraAsync`, `CreateImuAsync`, `CreateContactAsync`,
+- **Sensors** (`client.Sensors`): `CreateCameraAsync` (RGB, optional float32 depth + semantic
+  segmentation label image with id→label map), `CreateImuAsync`, `CreateContactAsync`,
   `CreateLidarAsync`, `CreateRadarAsync` (needs `--motion-bvh`), `GetFrameAsync` (pull),
   `StreamAsync` (push, `IAsyncEnumerable`).
 - **USD** (`client.Usd`): generic, reflective stage access — `ListPrimsAsync` / `FindPrimsAsync`

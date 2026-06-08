@@ -474,9 +474,16 @@ class Handlers:
             kwargs["orientations"] = np.array([q.w, q.x, q.y, q.z])
 
         cam = RtxCamera(path, **kwargs)
-        annotators = ["rgb"] + (["distance_to_image_plane"] if req.depth else [])
+        annotators = ["rgb"]
+        if req.depth:
+            annotators.append("distance_to_image_plane")
+        if req.segmentation:
+            annotators.append("semantic_segmentation")
         sensor = CameraSensor(cam, resolution=(height, width), annotators=annotators)
-        self._sensors[path] = {"type": pb.SENSOR_CAMERA, "sensor": sensor, "depth": req.depth}
+        self._sensors[path] = {
+            "type": pb.SENSOR_CAMERA, "sensor": sensor,
+            "depth": req.depth, "segmentation": req.segmentation,
+        }
         reply.sensor.handle = path
 
     def _h_create_imu(self, cmd, reply) -> None:
@@ -672,6 +679,17 @@ class Handlers:
             depth, _ = sensor.get_data("distance_to_image_plane")
             if depth is not None:
                 img.depth = np.ascontiguousarray(depth.numpy()).astype(np.float32).tobytes()
+        if info.get("segmentation"):
+            seg, seg_info = sensor.get_data("semantic_segmentation")
+            if seg is not None:
+                img.segmentation = np.ascontiguousarray(seg.numpy()).astype(np.uint32).tobytes()
+                # seg_info["idToLabels"] maps each id to a label (str, or a dict with "class").
+                for key, label in (seg_info or {}).get("idToLabels", {}).items():
+                    try:
+                        img.segmentation_labels[int(key)] = (
+                            label.get("class", str(label)) if isinstance(label, dict) else str(label))
+                    except (TypeError, ValueError):
+                        pass
         return frame
 
     def _frame_imu(self, handle, info):
