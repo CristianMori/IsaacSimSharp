@@ -675,19 +675,24 @@ class Handlers:
         return frame
 
     def _frame_imu(self, handle, info):
+        """Read an IMU into an ImuFrame.
+
+        IMUSensor.get_data() returns a dict with fixed keys: linear_acceleration [x,y,z],
+        angular_velocity [x,y,z], and orientation [w,x,y,z].
+        """
         import numpy as np
 
         data = info["sensor"].get_data()
         frame = self._frame_header(handle, pb.SENSOR_IMU)
-        acc = _imu_field(data, ("lin_acc", "linear_acceleration", "acceleration", "accel"))
-        gyro = _imu_field(data, ("ang_vel", "angular_velocity", "gyro"))
-        orient = _imu_field(data, ("orientation", "quat", "orientations"))
-        if acc is not None:
-            frame.imu.linear_acceleration.x, frame.imu.linear_acceleration.y, frame.imu.linear_acceleration.z = acc
-        if gyro is not None:
-            frame.imu.angular_velocity.x, frame.imu.angular_velocity.y, frame.imu.angular_velocity.z = gyro
-        if orient is not None and len(orient) == 4:
-            frame.imu.orientation.w, frame.imu.orientation.x, frame.imu.orientation.y, frame.imu.orientation.z = orient
+        acc = np.asarray(data["linear_acceleration"]).reshape(-1)
+        gyro = np.asarray(data["angular_velocity"]).reshape(-1)
+        quat = np.asarray(data["orientation"]).reshape(-1)  # wxyz
+        frame.imu.linear_acceleration.x, frame.imu.linear_acceleration.y, frame.imu.linear_acceleration.z = (
+            float(acc[0]), float(acc[1]), float(acc[2]))
+        frame.imu.angular_velocity.x, frame.imu.angular_velocity.y, frame.imu.angular_velocity.z = (
+            float(gyro[0]), float(gyro[1]), float(gyro[2]))
+        frame.imu.orientation.w, frame.imu.orientation.x, frame.imu.orientation.y, frame.imu.orientation.z = (
+            float(quat[0]), float(quat[1]), float(quat[2]), float(quat[3]))
         return frame
 
     # ------------------------------------------------------------------ generic USD

@@ -182,7 +182,8 @@ See **[samples/README.md](samples/README.md)** for a description of every sample
 All four sensor types (camera, contact, lidar, IMU) and `ImportUrdfAsync` are verified live
 (camera RGB8+depth; contact `in_contact`/count/force-magnitude; lidar ~200k-point cloud with
 per-point intensity, decoded from the GMO buffer; URDF import of `assets/urdf/04-materials.urdf`
-→ `/World/robot`). IMU uses best-effort field extraction. RTX **radar** works only when the
+→ `/World/robot`). IMU returns linear acceleration / angular velocity / orientation (verified:
+~9.81 m/s² gravity reaction at rest). RTX **radar** works only when the
 bridge is launched with `--motion-bvh` (Doppler needs Motion BVH; without it `CreateRadarAsync`
 returns a clear error instead of crashing the sim). Motion BVH is off by default because it
 slows all sensors and uses more VRAM.
