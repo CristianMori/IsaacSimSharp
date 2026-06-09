@@ -15,7 +15,7 @@ param()
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$proto = Join-Path $repoRoot 'proto\isaacsim.proto'
+$protoDir = Join-Path $repoRoot 'proto'
 
 # Locate the newest protoc.exe from the restored Grpc.Tools package.
 $nuget = if ($env:NUGET_PACKAGES) { $env:NUGET_PACKAGES } else { Join-Path $env:USERPROFILE '.nuget\packages' }
@@ -36,6 +36,8 @@ $targets = @(
 
 foreach ($out in $targets) {
     if (-not (Test-Path $out)) { New-Item -ItemType Directory -Force -Path $out | Out-Null }
-    & $protoc.FullName --proto_path=(Join-Path $repoRoot 'proto') --python_out=$out $proto
+    # protoc requires the .proto argument expressed relative to --proto_path, so
+    # pass the directory and the bare file name (not an absolute path).
+    & $protoc.FullName "--proto_path=$protoDir" "--python_out=$out" 'isaacsim.proto'
     Write-Host "Generated Python protobuf -> $out"
 }
