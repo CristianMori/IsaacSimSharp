@@ -68,6 +68,16 @@ public sealed class SensorTests
     }
 
     [Fact]
+    public async Task CameraNormalsReturnsNormalImage()
+    {
+        using var client = _fixture.CreateClient();
+        var cam = await client.Sensors.CreateCameraAsync("/World/cam_normals", width: 8, height: 8, normals: true);
+        var frame = await client.Sensors.GetFrameAsync(cam);
+
+        Assert.Equal(8 * 8 * 3 * 4, frame.Image.Normals.Length); // float32 x,y,z per pixel
+    }
+
+    [Fact]
     public async Task ImuPullReturnsImuFrame()
     {
         using var client = _fixture.CreateClient();

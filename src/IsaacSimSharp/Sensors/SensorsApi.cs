@@ -31,6 +31,7 @@ public sealed class SensorsApi
         bool depth = true,
         bool segmentation = false,
         bool instanceSegmentation = false,
+        bool normals = false,
         CancellationToken cancellationToken = default)
     {
         var request = new CreateCameraRequest
@@ -41,6 +42,7 @@ public sealed class SensorsApi
             Depth = depth,
             Segmentation = segmentation,
             InstanceSegmentation = instanceSegmentation,
+            Normals = normals,
             Position = ToVec3(position),
         };
         if (orientation is { } q)

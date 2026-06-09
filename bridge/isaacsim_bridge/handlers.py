@@ -493,10 +493,13 @@ class Handlers:
             annotators.append("semantic_segmentation")
         if req.instance_segmentation:
             annotators.append("instance_segmentation")
+        if req.normals:
+            annotators.append("normals")
         sensor = CameraSensor(cam, resolution=(height, width), annotators=annotators)
         self._sensors[path] = {
             "type": pb.SENSOR_CAMERA, "sensor": sensor, "depth": req.depth,
             "segmentation": req.segmentation, "instance_segmentation": req.instance_segmentation,
+            "normals": req.normals,
         }
         reply.sensor.handle = path
 
@@ -703,6 +706,10 @@ class Handlers:
             if inst is not None:
                 img.instance_segmentation = np.ascontiguousarray(inst.numpy()).astype(np.uint32).tobytes()
                 _copy_id_labels(inst_info, img.instance_labels)
+        if info.get("normals"):
+            normals, _ = sensor.get_data("normals")
+            if normals is not None:
+                img.normals = np.ascontiguousarray(normals.numpy()).astype(np.float32).tobytes()
         return frame
 
     def _frame_imu(self, handle, info):

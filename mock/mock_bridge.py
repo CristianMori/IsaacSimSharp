@@ -56,6 +56,7 @@ def make_frame(handle: str, state: dict) -> "pb.SensorFrame":
     kind, width, height = entry[0], entry[1], entry[2]
     seg = entry[3] if len(entry) > 3 else False
     inst = entry[4] if len(entry) > 4 else False
+    normals = entry[5] if len(entry) > 5 else False
     frame = pb.SensorFrame(handle=handle, frame=state["frame"], sim_time=state["frame"] / 60.0)
     if kind == "camera":
         frame.type = pb.SENSOR_CAMERA
@@ -70,6 +71,8 @@ def make_frame(handle: str, state: dict) -> "pb.SensorFrame":
         if inst:
             frame.image.instance_segmentation = bytes(width * height * 4)
             frame.image.instance_labels[0] = "/World/unlabelled"
+        if normals:
+            frame.image.normals = bytes(width * height * 3 * 4)  # float32 zeros (x,y,z per pixel)
     elif kind == "contact":
         frame.type = pb.SENSOR_CONTACT
         frame.contact.in_contact = True
@@ -131,7 +134,8 @@ def handle(cmd: "pb.Command", state: dict) -> "pb.Reply":
     elif which == "create_camera":
         h = cmd.create_camera.prim_path or "/World/camera"
         state["sensors"][h] = ("camera", cmd.create_camera.width or 8, cmd.create_camera.height or 8,
-                               cmd.create_camera.segmentation, cmd.create_camera.instance_segmentation)
+                               cmd.create_camera.segmentation, cmd.create_camera.instance_segmentation,
+                               cmd.create_camera.normals)
         reply.sensor.handle = h
     elif which == "create_imu":
         h = cmd.create_imu.prim_path or "/World/imu_sensor"

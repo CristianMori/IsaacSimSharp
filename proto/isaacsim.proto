@@ -304,6 +304,7 @@ message CreateCameraRequest {
   bool depth = 6;                 // also capture a depth annotator
   bool segmentation = 7;          // also capture a semantic segmentation annotator
   bool instance_segmentation = 8; // also capture an instance segmentation annotator
+  bool normals = 9;               // also capture a surface-normals annotator
 }
 
 message CreateImuRequest {
@@ -347,6 +348,7 @@ message ImageFrame {
   map<uint32, string> segmentation_labels = 8; // semantic id -> label
   bytes instance_segmentation = 9;             // optional uint32 instance label image (w*h*4)
   map<uint32, string> instance_labels = 10;    // instance id -> prim path/label
+  bytes normals = 11;                          // optional float32 surface normals (w*h*3*4: x,y,z per pixel)
 }
 
 message ImuFrame {
