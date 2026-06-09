@@ -54,6 +54,18 @@ def _scalar_field(data, names):
         return value
 
 
+def _copy_id_labels(info, label_map):
+    """Copy a segmentation annotator's idToLabels mapping into a protobuf <uint32,string> map.
+
+    Each label may be a plain string or a dict containing a "class" entry.
+    """
+    for key, label in (info or {}).get("idToLabels", {}).items():
+        try:
+            label_map[int(key)] = label.get("class", str(label)) if isinstance(label, dict) else str(label)
+        except (TypeError, ValueError):
+            pass
+
+
 def _usd_to_value(val):
     """Convert a USD/Gf/Vt value into a protobuf UsdValue (best-effort)."""
     from pxr import Gf, Sdf, Vt
@@ -479,10 +491,12 @@ class Handlers:
             annotators.append("distance_to_image_plane")
         if req.segmentation:
             annotators.append("semantic_segmentation")
+        if req.instance_segmentation:
+            annotators.append("instance_segmentation")
         sensor = CameraSensor(cam, resolution=(height, width), annotators=annotators)
         self._sensors[path] = {
-            "type": pb.SENSOR_CAMERA, "sensor": sensor,
-            "depth": req.depth, "segmentation": req.segmentation,
+            "type": pb.SENSOR_CAMERA, "sensor": sensor, "depth": req.depth,
+            "segmentation": req.segmentation, "instance_segmentation": req.instance_segmentation,
         }
         reply.sensor.handle = path
 
@@ -683,13 +697,12 @@ class Handlers:
             seg, seg_info = sensor.get_data("semantic_segmentation")
             if seg is not None:
                 img.segmentation = np.ascontiguousarray(seg.numpy()).astype(np.uint32).tobytes()
-                # seg_info["idToLabels"] maps each id to a label (str, or a dict with "class").
-                for key, label in (seg_info or {}).get("idToLabels", {}).items():
-                    try:
-                        img.segmentation_labels[int(key)] = (
-                            label.get("class", str(label)) if isinstance(label, dict) else str(label))
-                    except (TypeError, ValueError):
-                        pass
+                _copy_id_labels(seg_info, img.segmentation_labels)
+        if info.get("instance_segmentation"):
+            inst, inst_info = sensor.get_data("instance_segmentation")
+            if inst is not None:
+                img.instance_segmentation = np.ascontiguousarray(inst.numpy()).astype(np.uint32).tobytes()
+                _copy_id_labels(inst_info, img.instance_labels)
         return frame
 
     def _frame_imu(self, handle, info):

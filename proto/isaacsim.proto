@@ -301,8 +301,9 @@ message CreateCameraRequest {
   uint32 height = 3;  // defaults to 480
   Vec3 position = 4;
   Quat orientation = 5; // wxyz; identity when unset
-  bool depth = 6;         // also capture a depth annotator
-  bool segmentation = 7;  // also capture a semantic segmentation annotator
+  bool depth = 6;                 // also capture a depth annotator
+  bool segmentation = 7;          // also capture a semantic segmentation annotator
+  bool instance_segmentation = 8; // also capture an instance segmentation annotator
 }
 
 message CreateImuRequest {
@@ -344,6 +345,8 @@ message ImageFrame {
   bytes depth = 6;     // optional float32 depth (meters), length = width*height*4
   bytes segmentation = 7;                    // optional uint32 semantic label image (w*h*4)
   map<uint32, string> segmentation_labels = 8; // semantic id -> label
+  bytes instance_segmentation = 9;             // optional uint32 instance label image (w*h*4)
+  map<uint32, string> instance_labels = 10;    // instance id -> prim path/label
 }
 
 message ImuFrame {
