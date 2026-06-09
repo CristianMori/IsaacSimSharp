@@ -65,6 +65,13 @@ def make_frame(handle: str, state: dict) -> "pb.SensorFrame":
         frame.image.channels = 4
         frame.image.encoding = "rgba8"
         frame.image.data = bytes([128, 128, 128, 255]) * (width * height)
+        # Plausible pinhole intrinsics (square pixels, centered principal point).
+        frame.image.intrinsics.fx = float(width)
+        frame.image.intrinsics.fy = float(width)
+        frame.image.intrinsics.cx = width / 2.0
+        frame.image.intrinsics.cy = height / 2.0
+        # Constant 2 m depth (float32 per pixel) so deprojection has data to work with.
+        frame.image.depth = struct.pack(f"<{width * height}f", *([2.0] * (width * height)))
         if seg:
             frame.image.segmentation = bytes(width * height * 4)  # uint32 zeros
             frame.image.segmentation_labels[0] = "background"

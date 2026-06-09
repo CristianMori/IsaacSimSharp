@@ -362,6 +362,15 @@ message ImageFrame {
   bytes instance_segmentation = 9;             // optional uint32 instance label image (w*h*4)
   map<uint32, string> instance_labels = 10;    // instance id -> prim path/label
   bytes normals = 11;                          // optional float32 surface normals (w*h*3*4: x,y,z per pixel)
+  CameraIntrinsics intrinsics = 12;            // pinhole intrinsics (set when known); enables depth deprojection
+}
+
+// Pinhole camera intrinsics in pixel units, derived from focal length and aperture.
+message CameraIntrinsics {
+  double fx = 1; // focal length in pixels (x)
+  double fy = 2; // focal length in pixels (y)
+  double cx = 3; // principal point x (pixels)
+  double cy = 4; // principal point y (pixels)
 }
 
 message ImuFrame {

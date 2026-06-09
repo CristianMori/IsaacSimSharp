@@ -510,9 +510,9 @@ class Handlers:
             annotators.append("normals")
         sensor = CameraSensor(cam, resolution=(height, width), annotators=annotators)
         self._sensors[path] = {
-            "type": pb.SENSOR_CAMERA, "sensor": sensor, "depth": req.depth,
+            "type": pb.SENSOR_CAMERA, "sensor": sensor, "camera": cam, "depth": req.depth,
             "segmentation": req.segmentation, "instance_segmentation": req.instance_segmentation,
-            "normals": req.normals,
+            "normals": req.normals, "width": width, "height": height,
         }
         reply.sensor.handle = path
 
@@ -723,7 +723,30 @@ class Handlers:
             normals, _ = sensor.get_data("normals")
             if normals is not None:
                 img.normals = np.ascontiguousarray(normals.numpy()).astype(np.float32).tobytes()
+        self._fill_intrinsics(img, info)
         return frame
+
+    @staticmethod
+    def _fill_intrinsics(img, info):
+        """Populate pinhole intrinsics (fx, fy, cx, cy) from the camera's focal length and aperture."""
+        cam = info.get("camera")
+        if cam is None:
+            return
+        try:
+            width, height = int(info["width"]), int(info["height"])
+            focal = float(cam.camera.get_focal_lengths().numpy().reshape(-1)[0])
+            h_ap, v_ap = cam.camera.get_apertures()
+            h_aperture = float(h_ap.numpy().reshape(-1)[0])
+            v_aperture = float(v_ap.numpy().reshape(-1)[0])
+            if h_aperture <= 0.0 or v_aperture <= 0.0:
+                return
+            # Standard pinhole model; focal length and aperture share units, so they cancel.
+            img.intrinsics.fx = focal * width / h_aperture
+            img.intrinsics.fy = focal * height / v_aperture
+            img.intrinsics.cx = width / 2.0
+            img.intrinsics.cy = height / 2.0
+        except Exception:  # noqa: BLE001 - intrinsics are best-effort
+            pass
 
     def _frame_imu(self, handle, info):
         """Read an IMU into an ImuFrame.

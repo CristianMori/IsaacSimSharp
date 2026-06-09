@@ -1,4 +1,5 @@
 using IsaacSimSharp.Protocol;
+using IsaacSimSharp.Sensors;
 using Xunit;
 
 namespace IsaacSimSharp.Tests;
@@ -75,6 +76,32 @@ public sealed class SensorTests
         var frame = await client.Sensors.GetFrameAsync(cam);
 
         Assert.Equal(8 * 8 * 3 * 4, frame.Image.Normals.Length); // float32 x,y,z per pixel
+    }
+
+    [Fact]
+    public async Task CameraFrameCarriesIntrinsics()
+    {
+        using var client = _fixture.CreateClient();
+        var cam = await client.Sensors.CreateCameraAsync("/World/cam_intr", width: 8, height: 8);
+        var frame = await client.Sensors.GetFrameAsync(cam);
+
+        Assert.NotNull(frame.Image.Intrinsics);
+        Assert.True(frame.Image.Intrinsics.Fx > 0);
+        Assert.Equal(4.0, frame.Image.Intrinsics.Cx); // width/2
+    }
+
+    [Fact]
+    public async Task DepthCloudDeprojectsToCameraSpacePoints()
+    {
+        using var client = _fixture.CreateClient();
+        var cam = await client.Sensors.CreateCameraAsync("/World/cam_cloud", width: 8, height: 8);
+        var frame = await client.Sensors.GetFrameAsync(cam);
+
+        var points = DepthCloud.ToPoints(frame.Image);
+        Assert.Equal(8 * 8, points.Count); // all pixels have valid (2 m) depth in the mock
+        Assert.All(points, p => Assert.Equal(2.0f, p.Z, 3)); // z == depth
+        // Principal-point pixel (cx,cy) deprojects to (0,0,d) in the optical frame.
+        Assert.Contains(points, p => Math.Abs(p.X) < 1e-3 && Math.Abs(p.Y) < 1e-3);
     }
 
     [Fact]
