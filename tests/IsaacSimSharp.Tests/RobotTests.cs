@@ -41,4 +41,16 @@ public sealed class RobotTests
         var state = await robot.GetStateAsync();
         Assert.Equal(target, state.Positions);
     }
+
+    [Fact]
+    public async Task GetLinkForcesReturnsParallelLists()
+    {
+        using var client = _fixture.CreateClient();
+        var robot = await client.Robots.RegisterAsync("/World/robot");
+        var forces = await robot.GetLinkForcesAsync();
+
+        Assert.NotEmpty(forces.LinkNames);
+        Assert.Equal(forces.LinkNames.Count, forces.Forces.Count);
+        Assert.Equal(forces.LinkNames.Count, forces.Torques.Count);
+    }
 }

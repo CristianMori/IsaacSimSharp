@@ -131,6 +131,12 @@ def handle(cmd: "pb.Command", state: dict) -> "pb.Reply":
         reply.dof_state.efforts.extend([0.0] * n)
     elif which == "set_dof_targets":
         state["targets"] = list(cmd.set_dof_targets.values)
+    elif which == "get_link_forces":
+        # one synthetic link per DOF; forces/torques are flattened link_count * 3
+        links = state["dofs"]
+        reply.link_forces.link_names.extend([f"link{i}" for i in range(links)])
+        reply.link_forces.forces.extend([0.0] * links * 3)
+        reply.link_forces.torques.extend([0.0] * links * 3)
     elif which == "create_camera":
         h = cmd.create_camera.prim_path or "/World/camera"
         state["sensors"][h] = ("camera", cmd.create_camera.width or 8, cmd.create_camera.height or 8,

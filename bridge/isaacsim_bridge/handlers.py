@@ -442,6 +442,19 @@ class Handlers:
         except Exception:  # noqa: BLE001 - efforts not always available
             pass
 
+    def _h_get_link_forces(self, cmd, reply) -> None:
+        """GetLinkForces: read the sensed 6D reaction force/torque at each link's incoming joint."""
+        art = self._articulation(cmd.get_link_forces.prim_path)
+        try:
+            names = [str(n) for n in art.link_names]
+        except Exception:  # noqa: BLE001 - link_names may be unavailable before play
+            names = []
+        reply.link_forces.link_names.extend(names)
+        # forces/torques are shape (N, L, 3); this wrapper holds a single articulation (N == 1).
+        forces, torques = art.get_link_incoming_joint_force()
+        reply.link_forces.forces.extend(forces.numpy().reshape(-1).tolist())
+        reply.link_forces.torques.extend(torques.numpy().reshape(-1).tolist())
+
     def _h_set_dof_targets(self, cmd, reply) -> None:
         """SetDofTargets: drive joints by position or velocity targets, or direct efforts."""
         import numpy as np

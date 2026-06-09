@@ -73,6 +73,7 @@ message Command {
     RaycastRequest raycast = 59;
     MovePrimRequest move_prim = 60;
     DuplicatePrimRequest duplicate_prim = 61;
+    GetLinkForcesRequest get_link_forces = 62;
   }
 }
 
@@ -100,6 +101,7 @@ message Reply {
     BoundsReply bounds = 48;       // returned by get_bounds
     VelocityReply velocity = 58;   // returned by get_velocity
     RaycastReply raycast = 59;     // returned by raycast
+    LinkForcesReply link_forces = 62; // returned by get_link_forces
   }
 }
 
@@ -274,6 +276,17 @@ message SetDofTargetsRequest {
   DofControlMode mode = 2;
   repeated double values = 3;
   repeated uint32 indices = 4;
+}
+
+// Read the sensed 6D reaction force/torque at each link's incoming joint
+// (force feedback). Distinct from commanded efforts in DofStateReply.
+message GetLinkForcesRequest {
+  string prim_path = 1;
+}
+message LinkForcesReply {
+  repeated string link_names = 1; // one entry per link, in order
+  repeated double forces = 2;     // flattened link_count * 3 (x,y,z) in N
+  repeated double torques = 3;    // flattened link_count * 3 (x,y,z) in N*m
 }
 
 // ------------------------------ Sensors ------------------------------
