@@ -36,6 +36,15 @@ public sealed class LifecycleTests
     }
 
     [Fact]
+    public async Task StepAsyncChunksLargeCounts()
+    {
+        using var client = _fixture.CreateClient();
+        var before = await client.StepAsync(1);
+        var after = await client.StepAsync(250); // > one chunk; client splits it transparently
+        Assert.Equal(before.Frame + 250u, after.Frame);
+    }
+
+    [Fact]
     public async Task ExportUsdAsyncReturnsPath()
     {
         using var client = _fixture.CreateClient();

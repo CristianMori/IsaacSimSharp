@@ -50,7 +50,5 @@ Console.WriteLine($"Prims on stage: {(await client.Usd.ListPrimsAsync()).Count}"
 if (gui)
 {
     Console.WriteLine("Holding so you can look around the window...");
-    // Step in small chunks so no single command exceeds the request timeout.
-    for (var i = 0; i < 20; i++)
-        await client.StepAsync(30);
+    await client.StepAsync(600); // StepAsync chunks large counts internally, so this won't time out
 }

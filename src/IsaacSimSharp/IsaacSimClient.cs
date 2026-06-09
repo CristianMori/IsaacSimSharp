@@ -103,14 +103,27 @@ public sealed class IsaacSimClient : IDisposable
     public Task SetPhysicsDtAsync(double dt, CancellationToken cancellationToken = default)
         => AckAsync(new Command { SetPhysicsDt = new SetPhysicsDtRequest { Dt = dt } }, cancellationToken);
 
+    // Frames per Step command. A single command runs N renders synchronously on the bridge, so a
+    // very large count could exceed the request timeout (especially with --gui). Large steps are
+    // split into chunks of this size; the visible effect is identical.
+    private const uint StepChunk = 60;
+
     /// <summary>Advances the simulation by <paramref name="count"/> frames; returns the new frame/time.</summary>
     public async Task<StepReply> StepAsync(uint count = 1, CancellationToken cancellationToken = default)
     {
-        var reply = await _commands
-            .SendAsync(new Command { Step = new StepRequest { Count = count } }, cancellationToken)
-            .ConfigureAwait(false);
-        ThrowIfError(reply);
-        return reply.Step;
+        var remaining = count == 0 ? 1u : count;
+        StepReply last = new();
+        while (remaining > 0)
+        {
+            var n = Math.Min(remaining, StepChunk);
+            var reply = await _commands
+                .SendAsync(new Command { Step = new StepRequest { Count = n } }, cancellationToken)
+                .ConfigureAwait(false);
+            reply.EnsureOk();
+            last = reply.Step;
+            remaining -= n;
+        }
+        return last;
     }
 
     /// <summary>Exports the current stage to disk; returns the resolved absolute path written.</summary>
