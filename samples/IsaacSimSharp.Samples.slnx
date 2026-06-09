@@ -5,6 +5,7 @@
     <Project Path="snippets/CameraStream/CameraStream.csproj" />
     <Project Path="snippets/ConnectAndPing/ConnectAndPing.csproj" />
     <Project Path="snippets/CreateAnyPrim/CreateAnyPrim.csproj" />
+    <Project Path="snippets/DepthPointCloud/DepthPointCloud.csproj" />
     <Project Path="snippets/DigitalTwinFeed/DigitalTwinFeed.csproj" />
     <Project Path="snippets/DriveRobot/DriveRobot.csproj" />
     <Project Path="snippets/EditScope/EditScope.csproj" />
@@ -12,6 +13,7 @@
     <Project Path="snippets/ExportUsd/ExportUsd.csproj" />
     <Project Path="snippets/ImuSensor/ImuSensor.csproj" />
     <Project Path="snippets/LidarSensor/LidarSensor.csproj" />
+    <Project Path="snippets/LinkForces/LinkForces.csproj" />
     <Project Path="snippets/LivestreamHeadless/LivestreamHeadless.csproj" />
     <Project Path="snippets/LoadRobot/LoadRobot.csproj" />
     <Project Path="snippets/Materials/Materials.csproj" />

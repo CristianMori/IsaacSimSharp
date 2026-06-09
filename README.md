@@ -131,8 +131,8 @@ orchestration showcases. Briefly:
   TransformsAndBounds, ExportUsd
 - **Manipulation** — EditScope, ReparentRenameDuplicate, VisibilityAndActive
 - **Physics** — PhysicsAuthoring, Materials, RuntimePhysics, Raycast
-- **Sensors** — CameraSnapshot, CameraStream, ImuSensor, LidarSensor
-- **Robot** — LoadRobot, DriveRobot
+- **Sensors** — CameraSnapshot, CameraStream, ImuSensor, LidarSensor, DepthPointCloud
+- **Robot** — LoadRobot, DriveRobot, LinkForces
 - **Showcases** — SceneStudio (compose → snapshot + export), DigitalTwinFeed (runtime control loop);
   plus the original Quickstart, RobotControl, SensorStream, SelfHosted
 
@@ -146,12 +146,14 @@ See **[samples/README.md](samples/README.md)** for a description of every sample
   `GetAssetsRootAsync`.
 - **Scene** (`client.Scene`): `AddGroundPlaneAsync`, `AddLightAsync`, `AddPrimitiveAsync`,
   `AddReferenceAsync`, `ImportUrdfAsync`, `SetPrimPoseAsync`, `RemovePrimAsync`.
-- **Robots** (`client.Robots`): `RegisterAsync` → `RobotArticulation` with `GetStateAsync`,
+- **Robots** (`client.Robots`): `RegisterAsync` → `RobotArticulation` with `GetStateAsync`
+  (positions/velocities/efforts), `GetLinkForcesAsync` (sensed 6D joint reaction forces/torques),
   `SetPositionTargetsAsync`, `SetVelocityTargetsAsync`, `SetEffortsAsync`.
-- **Sensors** (`client.Sensors`): `CreateCameraAsync` (RGB, optional float32 depth + semantic
-  segmentation label image with id→label map), `CreateImuAsync`, `CreateContactAsync`,
-  `CreateLidarAsync`, `CreateRadarAsync` (needs `--motion-bvh`), `GetFrameAsync` (pull),
-  `StreamAsync` (push, `IAsyncEnumerable`).
+- **Sensors** (`client.Sensors`): `CreateCameraAsync` (RGB, optional float32 depth, semantic and
+  instance segmentation label images with id→label maps, surface normals, and pinhole intrinsics),
+  `CreateImuAsync`, `CreateContactAsync`, `CreateLidarAsync`, `CreateRadarAsync` (needs
+  `--motion-bvh`), `GetFrameAsync` (pull), `StreamAsync` (push, `IAsyncEnumerable`). Deproject a
+  depth frame into a camera-space point cloud with `DepthCloud.ToPoints`.
 - **USD** (`client.Usd`): generic, reflective stage access — `ListPrimsAsync` / `FindPrimsAsync`
   (enumerate/query by type/name/API), `GetPrimAsync` (type/attrs/children/metadata/applied APIs),
   `DefinePrimAsync` (instantiate any USD type), `GetAttributeAsync` / `SetAttributeAsync`
@@ -188,6 +190,12 @@ per-point intensity, decoded from the GMO buffer; URDF import of `assets/urdf/04
 bridge is launched with `--motion-bvh` (Doppler needs Motion BVH; without it `CreateRadarAsync`
 returns a clear error instead of crashing the sim). Motion BVH is off by default because it
 slows all sensors and uses more VRAM.
+
+Also verified live: camera **semantic** and **instance segmentation** (uint32 label images with
+id→label maps), **surface normals**, and **pinhole intrinsics** (`fx, fy, cx, cy`) — which
+`DepthCloud.ToPoints` uses to deproject depth into a point cloud; and articulation
+`GetLinkForcesAsync` (sensed per-link 6D joint reaction forces/torques, distinct from commanded
+efforts).
 
 The SDK packs as a single self-contained NuGet package (`dotnet pack src/IsaacSimSharp`),
 depending only on `NetMQ` and `Google.Protobuf`.

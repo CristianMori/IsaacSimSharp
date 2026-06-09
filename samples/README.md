@@ -120,6 +120,11 @@ pulled `ImuFrame`. *Connect mode.*
 Attach an RTX lidar, step until the rotary scan buffer fills, and read the Cartesian point cloud
 (count + byte length) from the `PointCloudFrame`. *Connect mode.*
 
+### DepthPointCloud
+Capture a depth frame and deproject it into a 3D point cloud with `DepthCloud.ToPoints`, using the
+pinhole intrinsics (`fx, fy, cx, cy`) the camera frame now carries. Prints the intrinsics, point
+count, and depth range. *Connect mode.*
+
 ## Robot
 
 ### LoadRobot
@@ -129,6 +134,11 @@ stage with `AddReferenceAsync`; register it and print its DOF names. *Connect mo
 ### DriveRobot
 Register the Franka articulation and drive its 7 arm joints to a target pose with
 `SetPositionTargetsAsync`, then read joint positions with `GetStateAsync`. *Connect mode.*
+
+### LinkForces
+Read the sensed 6D reaction force/torque at each of the Franka's joints with `GetLinkForcesAsync`
+(force feedback) — measured loads, distinct from the commanded efforts in `GetStateAsync`. Prints
+per-link force and torque magnitudes after the arm settles under gravity. *Connect mode.*
 
 ## Orchestration showcases
 
